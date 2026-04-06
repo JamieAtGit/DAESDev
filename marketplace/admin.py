@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import CustomUser
+from .models import CustomUser, ProducerProfile, Category, Product
 
 
 @admin.register(CustomUser)
@@ -10,3 +10,21 @@ class CustomUserAdmin(UserAdmin):
     )
     list_display = ['username', 'email', 'role', 'is_staff']
     list_filter = ['role']
+
+
+@admin.register(ProducerProfile)
+class ProducerProfileAdmin(admin.ModelAdmin):
+    list_display = ['business_name', 'user', 'postcode']
+
+
+@admin.register(Category)
+class CategoryAdmin(admin.ModelAdmin):
+    list_display = ['name', 'slug']
+    prepopulated_fields = {'slug': ('name',)}
+
+
+@admin.register(Product)
+class ProductAdmin(admin.ModelAdmin):
+    list_display = ['name', 'producer', 'category', 'price', 'stock', 'is_active']
+    list_filter = ['is_active', 'is_organic', 'category']
+    search_fields = ['name', 'description']
