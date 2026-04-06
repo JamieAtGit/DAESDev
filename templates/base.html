@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Bristol Regional Food Network{% endblock %}</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; background: #f9f9f4; color: #333; }
+        nav { background: #2d6a2d; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+        nav a { color: white; text-decoration: none; margin-left: 1rem; }
+        nav .brand { font-size: 1.2rem; font-weight: bold; }
+        .container { max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
+        .messages { margin-bottom: 1rem; }
+        .messages li { list-style: none; padding: 0.75rem; border-radius: 4px; margin-bottom: 0.5rem; background: #d4edda; color: #155724; }
+        .btn { display: inline-block; padding: 0.5rem 1.2rem; border-radius: 4px; text-decoration: none; cursor: pointer; border: none; font-size: 1rem; }
+        .btn-green { background: #2d6a2d; color: white; }
+        .btn-red { background: #c0392b; color: white; }
+        footer { text-align: center; padding: 2rem; color: #888; font-size: 0.9rem; margin-top: 3rem; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="/" class="brand">🌿 Bristol Regional Food Network</a>
+        <div>
+            <a href="/products/">Browse</a>
+            {% if user.is_authenticated %}
+                <a href="/cart/">Cart</a>
+                {% if user.role == 'producer' %}
+                    <a href="/dashboard/">Dashboard</a>
+                {% endif %}
+                <a href="/logout/">Logout ({{ user.username }})</a>
+            {% else %}
+                <a href="/login/">Login</a>
+                <a href="/register/">Register</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <div class="container">
+        {% if messages %}
+            <ul class="messages">
+                {% for message in messages %}
+                    <li>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer>Bristol Regional Food Network &copy; 2025</footer>
+</body>
+</html>
