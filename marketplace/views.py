@@ -2,7 +2,8 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
-from .forms import RegisterForm
+from .forms import RegisterForm, ProducerRegistrationForm
+from .models import ProducerProfile
 
 
 def home(request):
@@ -40,3 +41,26 @@ def login_view(request):
 def logout_view(request):
     logout(request)
     return redirect('home')
+
+
+def register_producer(request):
+    if request.user.is_authenticated:
+        return redirect('home')
+    if request.method == 'POST':
+        form = ProducerRegistrationForm(request.POST)
+        if form.is_valid():
+            user = form.save(commit=False)
+            user.role = 'producer'
+            user.save()
+            ProducerProfile.objects.create(
+                user=user,
+                business_name=form.cleaned_data['business_name'],
+                address=form.cleaned_data['address'],
+                postcode=form.cleaned_data['postcode'],
+                description=form.cleaned_data.get('description', ''),
+            )
+            messages.success(request, 'Producer account created! Please log in.')
+            return redirect('login')
+    else:
+        form = ProducerRegistrationForm()
+    return render(request, 'marketplace/producer_register.html', {'form': form})
