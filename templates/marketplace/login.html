@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block title %}Login — BRFN{% endblock %}
+
+{% block content %}
+<div style="max-width:480px; margin:2rem auto; background:white; padding:2rem; border-radius:8px;">
+    <h2 style="margin-bottom:1.5rem;">Login</h2>
+    <form method="post">
+        {% csrf_token %}
+        {% for field in form %}
+            <div style="margin-bottom:1rem;">
+                <label style="display:block; margin-bottom:0.3rem;">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}
+                    <p style="color:red; font-size:0.85rem;">{{ field.errors.0 }}</p>
+                {% endif %}
+            </div>
+        {% endfor %}
+        <button type="submit" class="btn btn-green" style="width:100%;">Login</button>
+    </form>
+    <p style="margin-top:1rem; text-align:center;">No account? <a href="/register/">Register here</a></p>
+</div>
+{% endblock %}
