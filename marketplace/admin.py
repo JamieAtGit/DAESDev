@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import CustomUser, ProducerProfile, Category, Product
+from .models import CustomUser, ProducerProfile, Category, Product, Order, OrderItem
 
 
 @admin.register(CustomUser)
@@ -28,3 +28,15 @@ class ProductAdmin(admin.ModelAdmin):
     list_display = ['name', 'producer', 'category', 'price', 'stock', 'is_active']
     list_filter = ['is_active', 'is_organic', 'category']
     search_fields = ['name', 'description']
+
+
+class OrderItemInline(admin.TabularInline):
+    model = OrderItem
+    extra = 0
+
+
+@admin.register(Order)
+class OrderAdmin(admin.ModelAdmin):
+    list_display = ['id', 'customer', 'status', 'total_price', 'commission_amount', 'delivery_date']
+    list_filter = ['status']
+    inlines = [OrderItemInline]
