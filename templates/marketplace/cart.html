@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block title %}Cart — BRFN{% endblock %}
+
+{% block content %}
+<h2 style="margin-bottom:1.5rem;">Your Cart</h2>
+
+{% if cart %}
+    <table style="width:100%; background:white; border-collapse:collapse; border-radius:8px; overflow:hidden; margin-bottom:1.5rem;">
+        <thead style="background:#2d6a2d; color:white;">
+            <tr>
+                <th style="padding:0.75rem; text-align:left;">Product</th>
+                <th style="padding:0.75rem;">Producer</th>
+                <th style="padding:0.75rem;">Price</th>
+                <th style="padding:0.75rem;">Qty</th>
+                <th style="padding:0.75rem;">Subtotal</th>
+                <th style="padding:0.75rem;">Remove</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for id, item in cart.items %}
+            <tr style="border-bottom:1px solid #eee;">
+                <td style="padding:0.75rem;">{{ item.name }}</td>
+                <td style="padding:0.75rem; text-align:center;">{{ item.producer }}</td>
+                <td style="padding:0.75rem; text-align:center;">£{{ item.price }}</td>
+                <td style="padding:0.75rem; text-align:center;">
+                    <form method="post" action="/cart/update/{{ id }}/" style="display:inline;">
+                        {% csrf_token %}
+                        <input type="number" name="quantity" value="{{ item.quantity }}" min="1"
+                            style="width:55px; padding:0.3rem; border:1px solid #ccc; border-radius:4px;">
+                        <button type="submit" style="background:none; border:none; cursor:pointer; color:#2d6a2d;">✓</button>
+                    </form>
+                </td>
+                <td style="padding:0.75rem; text-align:center;">£{{ item.subtotal }}</td>
+                <td style="padding:0.75rem; text-align:center;">
+                    <form method="post" action="/cart/remove/{{ id }}/">
+                        {% csrf_token %}
+                        <button type="submit" style="background:none; border:none; cursor:pointer; color:red;">✕</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div style="text-align:right; margin-bottom:1rem;">
+        <p style="font-size:1.1rem;">Total: <strong>£{{ total }}</strong></p>
+        <p style="color:#666; font-size:0.9rem;">5% network commission will be added at checkout</p>
+    </div>
+    <div style="text-align:right;">
+        <a href="/checkout/" class="btn btn-green">Proceed to Checkout</a>
+    </div>
+{% else %}
+    <p>Your cart is empty. <a href="/products/">Browse products</a></p>
+{% endif %}
+{% endblock %}

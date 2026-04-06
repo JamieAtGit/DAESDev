@@ -148,3 +148,60 @@ def product_list(request):
 def product_detail(request, pk):
     product = get_object_or_404(Product, pk=pk, is_active=True)
     return render(request, 'marketplace/product_detail.html', {'product': product})
+
+
+@login_required
+def cart_add(request, pk):
+    if request.method != 'POST':
+        return redirect('product_list')
+    product = get_object_or_404(Product, pk=pk, is_active=True)
+    cart = request.session.get('cart', {})
+    quantity = int(request.POST.get('quantity', 1))
+    product_id = str(pk)
+    if product_id in cart:
+        cart[product_id]['quantity'] += quantity
+    else:
+        cart[product_id] = {
+            'name': product.name,
+            'price': str(product.price),
+            'quantity': quantity,
+            'producer': product.producer.business_name,
+        }
+    request.session['cart'] = cart
+    messages.success(request, f'"{product.name}" added to cart.')
+    return redirect('cart_view')
+
+
+@login_required
+def cart_view(request):
+    cart = request.session.get('cart', {})
+    for item in cart.values():
+        item['subtotal'] = round(float(item['price']) * item['quantity'], 2)
+    total = round(sum(item['subtotal'] for item in cart.values()), 2)
+    return render(request, 'marketplace/cart.html', {'cart': cart, 'total': total})
+
+
+@login_required
+def cart_remove(request, pk):
+    if request.method != 'POST':
+        return redirect('cart_view')
+    cart = request.session.get('cart', {})
+    cart.pop(str(pk), None)
+    request.session['cart'] = cart
+    return redirect('cart_view')
+
+
+@login_required
+def cart_update(request, pk):
+    if request.method != 'POST':
+        return redirect('cart_view')
+    cart = request.session.get('cart', {})
+    product_id = str(pk)
+    quantity = int(request.POST.get('quantity', 1))
+    if product_id in cart:
+        if quantity > 0:
+            cart[product_id]['quantity'] = quantity
+        else:
+            del cart[product_id]
+    request.session['cart'] = cart
+    return redirect('cart_view')
