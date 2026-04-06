@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+
+{% block title %}Browse Products — BRFN{% endblock %}
+
+{% block content %}
+<h2 style="margin-bottom:1.5rem;">Browse Local Products</h2>
+
+<form method="get" style="display:flex; gap:1rem; margin-bottom:2rem; flex-wrap:wrap;">
+    <input type="text" name="search" value="{{ search }}" placeholder="Search products..."
+        style="padding:0.5rem; border:1px solid #ccc; border-radius:4px; flex:1;">
+    <select name="category" style="padding:0.5rem; border:1px solid #ccc; border-radius:4px;">
+        <option value="">All Categories</option>
+        {% for cat in categories %}
+            <option value="{{ cat.slug }}" {% if cat.slug == category %}selected{% endif %}>{{ cat.name }}</option>
+        {% endfor %}
+    </select>
+    <label style="display:flex; align-items:center; gap:0.4rem;">
+        <input type="checkbox" name="organic" value="1" {% if organic %}checked{% endif %}> Organic only
+    </label>
+    <button type="submit" class="btn btn-green">Filter</button>
+</form>
+
+{% if products %}
+    <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:1.5rem;">
+        {% for product in products %}
+        <div style="background:white; border-radius:8px; padding:1.2rem; box-shadow:0 1px 4px rgba(0,0,0,0.08);">
+            <h3 style="margin-bottom:0.5rem;">{{ product.name }}</h3>
+            <p style="color:#666; font-size:0.9rem; margin-bottom:0.5rem;">{{ product.producer.business_name }}</p>
+            <p style="font-size:0.85rem; color:#555; margin-bottom:0.75rem;">{{ product.description|truncatewords:15 }}</p>
+            {% if product.is_organic %}
+                <span style="background:#d4edda; color:#155724; padding:0.2rem 0.5rem; border-radius:4px; font-size:0.8rem;">Organic</span>
+            {% endif %}
+            {% if product.allergens %}
+                <p style="font-size:0.8rem; color:#856404; margin-top:0.4rem;">⚠ {{ product.allergens }}</p>
+            {% endif %}
+            <p style="font-size:1.1rem; font-weight:bold; margin:0.75rem 0;">£{{ product.price }}</p>
+            <a href="/products/{{ product.id }}/" class="btn btn-green" style="width:100%; text-align:center;">View</a>
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <p>No products found.</p>
+{% endif %}
+{% endblock %}

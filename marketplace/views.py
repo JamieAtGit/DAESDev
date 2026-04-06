@@ -4,7 +4,8 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from .forms import RegisterForm, ProducerRegistrationForm, ProductForm
-from .models import ProducerProfile, Product
+from .models import ProducerProfile, Product, Category
+from django.shortcuts import get_object_or_404
 
 
 def home(request):
@@ -120,3 +121,30 @@ def product_delete(request, pk):
         messages.success(request, f'Product "{name}" deleted.')
         return redirect('dashboard')
     return render(request, 'marketplace/product_confirm_delete.html', {'product': product})
+
+
+def product_list(request):
+    products = Product.objects.filter(is_active=True).select_related('producer', 'category')
+    search = request.GET.get('search', '')
+    category = request.GET.get('category', '')
+    organic = request.GET.get('organic', '')
+
+    if search:
+        products = products.filter(name__icontains=search) | products.filter(description__icontains=search)
+    if category:
+        products = products.filter(category__slug=category)
+    if organic:
+        products = products.filter(is_organic=True)
+
+    return render(request, 'marketplace/product_list.html', {
+        'products': products,
+        'categories': Category.objects.all(),
+        'search': search,
+        'category': category,
+        'organic': organic,
+    })
+
+
+def product_detail(request, pk):
+    product = get_object_or_404(Product, pk=pk, is_active=True)
+    return render(request, 'marketplace/product_detail.html', {'product': product})

@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ product.name }} — BRFN{% endblock %}
+
+{% block content %}
+<div style="background:white; padding:2rem; border-radius:8px; max-width:700px;">
+    <h2 style="margin-bottom:0.5rem;">{{ product.name }}</h2>
+    <p style="color:#666; margin-bottom:1rem;">By {{ product.producer.business_name }} — {{ product.producer.postcode }}</p>
+
+    <p style="margin-bottom:1rem;">{{ product.description }}</p>
+
+    <table style="width:100%; margin-bottom:1.5rem;">
+        <tr><td style="padding:0.4rem 0; color:#666;">Price</td><td><strong>£{{ product.price }}</strong></td></tr>
+        <tr><td style="padding:0.4rem 0; color:#666;">Stock</td><td>{{ product.stock }} available</td></tr>
+        <tr><td style="padding:0.4rem 0; color:#666;">Category</td><td>{{ product.category.name|default:"Uncategorised" }}</td></tr>
+        <tr><td style="padding:0.4rem 0; color:#666;">Organic</td><td>{{ product.is_organic|yesno:"Yes,No" }}</td></tr>
+        {% if product.allergens %}
+        <tr><td style="padding:0.4rem 0; color:#666;">Allergens</td><td style="color:#856404;">⚠ {{ product.allergens }}</td></tr>
+        {% endif %}
+        {% if product.harvest_date %}
+        <tr><td style="padding:0.4rem 0; color:#666;">Harvest Date</td><td>{{ product.harvest_date }}</td></tr>
+        {% endif %}
+        {% if product.best_before %}
+        <tr><td style="padding:0.4rem 0; color:#666;">Best Before</td><td>{{ product.best_before }}</td></tr>
+        {% endif %}
+        {% if product.farm_origin %}
+        <tr><td style="padding:0.4rem 0; color:#666;">Farm Origin</td><td>{{ product.farm_origin }}</td></tr>
+        {% endif %}
+        <tr><td style="padding:0.4rem 0; color:#666;">Lead Time</td><td>{{ product.lead_time_hours }} hours</td></tr>
+    </table>
+
+    {% if user.is_authenticated and user.role != 'producer' %}
+    <form method="post" action="/cart/add/{{ product.id }}/">
+        {% csrf_token %}
+        <div style="display:flex; gap:1rem; align-items:center;">
+            <input type="number" name="quantity" value="1" min="1" max="{{ product.stock }}"
+                style="width:70px; padding:0.5rem; border:1px solid #ccc; border-radius:4px;">
+            <button type="submit" class="btn btn-green">Add to Cart</button>
+        </div>
+    </form>
+    {% elif not user.is_authenticated %}
+        <a href="/login/" class="btn btn-green">Login to buy</a>
+    {% endif %}
+</div>
+{% endblock %}
