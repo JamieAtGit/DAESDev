@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% block title %}Checkout — BRFN{% endblock %}
+
+{% block content %}
+<h2 style="margin-bottom:1.5rem;">Checkout</h2>
+
+<div style="display:grid; grid-template-columns:1fr 380px; gap:2rem;">
+    <div style="background:white; padding:2rem; border-radius:8px;">
+        <h3 style="margin-bottom:1rem;">Delivery Details</h3>
+        <form method="post">
+            {% csrf_token %}
+            {% for field in form %}
+                <div style="margin-bottom:1rem;">
+                    <label style="display:block; margin-bottom:0.3rem;">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.errors %}
+                        <p style="color:red; font-size:0.85rem;">{{ field.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-green" style="width:100%;">Place Order</button>
+        </form>
+    </div>
+
+    <div style="background:white; padding:2rem; border-radius:8px; align-self:start;">
+        <h3 style="margin-bottom:1rem;">Order Summary</h3>
+        {% for id, item in cart.items %}
+            <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem; font-size:0.9rem;">
+                <span>{{ item.name }} x{{ item.quantity }}</span>
+                <span>£{{ item.subtotal }}</span>
+            </div>
+        {% endfor %}
+        <hr style="margin:1rem 0;">
+        <div style="display:flex; justify-content:space-between;">
+            <span>Subtotal</span><span>£{{ total }}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; color:#666; font-size:0.9rem; margin-top:0.4rem;">
+            <span>Network commission (5%)</span><span>£{{ commission }}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:1.1rem; margin-top:0.75rem;">
+            <span>Total</span><span>£{{ grand_total }}</span>
+        </div>
+    </div>
+</div>
+{% endblock %}

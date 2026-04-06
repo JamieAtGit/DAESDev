@@ -3,8 +3,8 @@ from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from .forms import RegisterForm, ProducerRegistrationForm, ProductForm
-from .models import ProducerProfile, Product, Category
+from .forms import RegisterForm, ProducerRegistrationForm, ProductForm, CheckoutForm
+from .models import ProducerProfile, Product, Category, Order, OrderItem
 from django.shortcuts import get_object_or_404
 
 
@@ -189,6 +189,52 @@ def cart_remove(request, pk):
     cart.pop(str(pk), None)
     request.session['cart'] = cart
     return redirect('cart_view')
+
+
+@login_required
+def checkout(request):
+    cart = request.session.get('cart', {})
+    if not cart:
+        return redirect('cart_view')
+
+    for item in cart.values():
+        item['subtotal'] = round(float(item['price']) * item['quantity'], 2)
+
+    total = round(sum(item['subtotal'] for item in cart.values()), 2)
+    commission = round(total * 0.05, 2)
+    grand_total = round(total + commission, 2)
+
+    if request.method == 'POST':
+        form = CheckoutForm(request.POST)
+        if form.is_valid():
+            order = Order.objects.create(
+                customer=request.user,
+                delivery_address=form.cleaned_data['delivery_address'],
+                delivery_date=form.cleaned_data['delivery_date'],
+                total_price=grand_total,
+                commission_amount=commission,
+            )
+            for product_id, item in cart.items():
+                product = get_object_or_404(Product, pk=int(product_id))
+                OrderItem.objects.create(
+                    order=order,
+                    product=product,
+                    quantity=item['quantity'],
+                    unit_price=item['price'],
+                )
+            del request.session['cart']
+            messages.success(request, f'Order #{order.id} placed successfully!')
+            return redirect('home')
+    else:
+        form = CheckoutForm()
+
+    return render(request, 'marketplace/checkout.html', {
+        'form': form,
+        'cart': cart,
+        'total': total,
+        'commission': commission,
+        'grand_total': grand_total,
+    })
 
 
 @login_required
