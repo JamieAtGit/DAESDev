@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+
+{% block title %}Delete Product — BRFN{% endblock %}
+
+{% block content %}
+<div style="max-width:480px; margin:2rem auto; background:white; padding:2rem; border-radius:8px;">
+    <h2 style="margin-bottom:1rem;">Delete Product</h2>
+    <p>Are you sure you want to delete <strong>{{ product.name }}</strong>? This cannot be undone.</p>
+    <form method="post" style="margin-top:1.5rem; display:flex; gap:1rem;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-red">Yes, delete</button>
+        <a href="/dashboard/" class="btn" style="background:#ccc;">Cancel</a>
+    </form>
+</div>
+{% endblock %}

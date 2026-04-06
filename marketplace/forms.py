@@ -1,6 +1,6 @@
 from django.contrib.auth.forms import UserCreationForm
 from django import forms
-from .models import CustomUser
+from .models import CustomUser, Product
 
 
 class RegisterForm(UserCreationForm):
@@ -43,3 +43,20 @@ class ProducerRegistrationForm(UserCreationForm):
         if CustomUser.objects.filter(email=email).exists():
             raise forms.ValidationError('An account with this email already exists.')
         return email
+
+
+class ProductForm(forms.ModelForm):
+    class Meta:
+        model = Product
+        fields = [
+            'name', 'category', 'description', 'price', 'stock',
+            'allergens', 'is_organic', 'harvest_date', 'best_before',
+            'farm_origin', 'is_seasonal', 'seasonal_months',
+            'lead_time_hours', 'is_active',
+        ]
+        widgets = {
+            'harvest_date': forms.DateInput(attrs={'type': 'date'}),
+            'best_before': forms.DateInput(attrs={'type': 'date'}),
+            'description': forms.Textarea(attrs={'rows': 4}),
+            'allergens': forms.Textarea(attrs={'rows': 2}),
+        }

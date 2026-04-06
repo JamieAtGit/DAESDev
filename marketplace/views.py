@@ -2,8 +2,9 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
-from .forms import RegisterForm, ProducerRegistrationForm
-from .models import ProducerProfile
+from django.contrib.auth.decorators import login_required
+from .forms import RegisterForm, ProducerRegistrationForm, ProductForm
+from .models import ProducerProfile, Product
 
 
 def home(request):
@@ -64,3 +65,58 @@ def register_producer(request):
     else:
         form = ProducerRegistrationForm()
     return render(request, 'marketplace/producer_register.html', {'form': form})
+
+
+@login_required
+def dashboard(request):
+    if request.user.role != 'producer':
+        return redirect('home')
+    profile, _ = ProducerProfile.objects.get_or_create(user=request.user)
+    products = Product.objects.filter(producer=profile).order_by('-created_at')
+    return render(request, 'marketplace/dashboard.html', {'products': products, 'profile': profile})
+
+
+@login_required
+def product_create(request):
+    if request.user.role != 'producer':
+        return redirect('home')
+    if request.method == 'POST':
+        form = ProductForm(request.POST)
+        if form.is_valid():
+            product = form.save(commit=False)
+            product.producer = request.user.producer_profile
+            product.save()
+            messages.success(request, f'Product "{product.name}" created.')
+            return redirect('dashboard')
+    else:
+        form = ProductForm()
+    return render(request, 'marketplace/product_form.html', {'form': form, 'action': 'Create'})
+
+
+@login_required
+def product_edit(request, pk):
+    if request.user.role != 'producer':
+        return redirect('home')
+    product = Product.objects.get(pk=pk, producer=request.user.producer_profile)
+    if request.method == 'POST':
+        form = ProductForm(request.POST, instance=product)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Product "{product.name}" updated.')
+            return redirect('dashboard')
+    else:
+        form = ProductForm(instance=product)
+    return render(request, 'marketplace/product_form.html', {'form': form, 'action': 'Edit', 'product': product})
+
+
+@login_required
+def product_delete(request, pk):
+    if request.user.role != 'producer':
+        return redirect('home')
+    product = Product.objects.get(pk=pk, producer=request.user.producer_profile)
+    if request.method == 'POST':
+        name = product.name
+        product.delete()
+        messages.success(request, f'Product "{name}" deleted.')
+        return redirect('dashboard')
+    return render(request, 'marketplace/product_confirm_delete.html', {'product': product})

@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+
+{% block title %}Producer Dashboard — BRFN{% endblock %}
+
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+    <h2>My Products — {{ profile.business_name }}</h2>
+    <a href="/dashboard/products/new/" class="btn btn-green">+ Add Product</a>
+</div>
+
+{% if products %}
+    <table style="width:100%; background:white; border-collapse:collapse; border-radius:8px; overflow:hidden;">
+        <thead style="background:#2d6a2d; color:white;">
+            <tr>
+                <th style="padding:0.75rem; text-align:left;">Name</th>
+                <th style="padding:0.75rem;">Price</th>
+                <th style="padding:0.75rem;">Stock</th>
+                <th style="padding:0.75rem;">Active</th>
+                <th style="padding:0.75rem;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for product in products %}
+            <tr style="border-bottom:1px solid #eee;">
+                <td style="padding:0.75rem;">{{ product.name }}</td>
+                <td style="padding:0.75rem; text-align:center;">£{{ product.price }}</td>
+                <td style="padding:0.75rem; text-align:center;">{{ product.stock }}</td>
+                <td style="padding:0.75rem; text-align:center;">{{ product.is_active|yesno:"Yes,No" }}</td>
+                <td style="padding:0.75rem; text-align:center;">
+                    <a href="/dashboard/products/{{ product.id }}/edit/">Edit</a> |
+                    <a href="/dashboard/products/{{ product.id }}/delete/" style="color:red;">Delete</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p>You have no products yet. <a href="/dashboard/products/new/">Add your first product.</a></p>
+{% endif %}
+{% endblock %}
