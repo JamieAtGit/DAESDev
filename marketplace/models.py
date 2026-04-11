@@ -68,6 +68,27 @@ class Product(models.Model):
         return f"{self.name} — {self.producer.business_name}"
 
 
+class SurplusProduce(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='surplus_listings')
+    original_price = models.DecimalField(max_digits=8, decimal_places=2)
+    discounted_price = models.DecimalField(max_digits=8, decimal_places=2)
+    quantity_available = models.PositiveIntegerField()
+    reason = models.TextField(blank=True, help_text='e.g. End of day surplus, slight cosmetic imperfections')
+    available_until = models.DateTimeField()
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Surplus: {self.product.name} at £{self.discounted_price}"
+
+    @property
+    def discount_percentage(self):
+        if self.original_price:
+            saving = self.original_price - self.discounted_price
+            return round((saving / self.original_price) * 100)
+        return 0
+
+
 class Order(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
