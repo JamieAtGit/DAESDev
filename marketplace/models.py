@@ -98,6 +98,38 @@ class CommunityPost(models.Model):
     def __str__(self):
         return f"{self.get_post_type_display()} — {self.title}"
 
+
+class PaymentSettlement(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('paid', 'Paid'),
+    ]
+    producer = models.ForeignKey(ProducerProfile, on_delete=models.CASCADE, related_name='settlements')
+    order = models.ForeignKey('Order', on_delete=models.CASCADE, related_name='settlements')
+    gross_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    commission_deducted = models.DecimalField(max_digits=10, decimal_places=2)
+    net_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    week_ending = models.DateField()
+    paid_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Settlement for {self.producer.business_name} — week ending {self.week_ending}"
+
+
+class AuditLog(models.Model):
+    user = models.ForeignKey('CustomUser', on_delete=models.SET_NULL, null=True, blank=True)
+    action = models.CharField(max_length=255)
+    resource_type = models.CharField(max_length=100, blank=True)
+    resource_id = models.CharField(max_length=100, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    notes = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"[{self.timestamp:%Y-%m-%d %H:%M}] {self.user} — {self.action}"
+
     @property
     def discount_percentage(self):
         if self.original_price:
