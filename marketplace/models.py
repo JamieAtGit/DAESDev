@@ -81,6 +81,23 @@ class SurplusProduce(models.Model):
     def __str__(self):
         return f"Surplus: {self.product.name} at £{self.discounted_price}"
 
+
+class CommunityPost(models.Model):
+    POST_TYPE_CHOICES = [
+        ('story', 'Farm Story'),
+        ('recipe', 'Recipe'),
+        ('storage', 'Storage Tip'),
+    ]
+    producer = models.ForeignKey(ProducerProfile, on_delete=models.CASCADE, related_name='community_posts')
+    product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True, blank=True, related_name='community_posts')
+    post_type = models.CharField(max_length=20, choices=POST_TYPE_CHOICES)
+    title = models.CharField(max_length=200)
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.get_post_type_display()} — {self.title}"
+
     @property
     def discount_percentage(self):
         if self.original_price:

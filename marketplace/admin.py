@@ -32,7 +32,7 @@ class ProductAdmin(admin.ModelAdmin):
 
 @admin.register(SurplusProduce)
 class SurplusProduceAdmin(admin.ModelAdmin):
-    list_display = ['product', 'discounted_price', 'discount_percentage', 'quantity_available', 'available_until', 'is_active']
+    list_display = ['product', 'discounted_price', 'quantity_available', 'available_until', 'is_active']
     list_filter = ['is_active']
 
 
