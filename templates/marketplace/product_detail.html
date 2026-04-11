@@ -27,6 +27,12 @@
         <tr><td style="padding:0.4rem 0; color:#666;">Farm Origin</td><td>{{ product.farm_origin }}</td></tr>
         {% endif %}
         <tr><td style="padding:0.4rem 0; color:#666;">Lead Time</td><td>{{ product.lead_time_hours }} hours</td></tr>
+        {% if food_miles is not None %}
+        <tr>
+            <td style="padding:0.4rem 0; color:#666;">Food Miles</td>
+            <td>🌿 {{ food_miles }} miles from Bristol city centre</td>
+        </tr>
+        {% endif %}
     </table>
 
     {% if user.is_authenticated and user.role != 'producer' %}

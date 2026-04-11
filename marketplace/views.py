@@ -6,6 +6,7 @@ from django.contrib.auth.decorators import login_required
 from .forms import RegisterForm, ProducerRegistrationForm, ProductForm, CheckoutForm
 from .models import ProducerProfile, Product, Category, Order, OrderItem, SurplusProduce
 from .surplus_forms import SurplusProduceForm
+from .food_miles import calculate_food_miles
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 
@@ -149,7 +150,13 @@ def product_list(request):
 
 def product_detail(request, pk):
     product = get_object_or_404(Product, pk=pk, is_active=True)
-    return render(request, 'marketplace/product_detail.html', {'product': product})
+    food_miles = None
+    if product.producer.postcode:
+        food_miles = calculate_food_miles('BS11AA', product.producer.postcode)
+    return render(request, 'marketplace/product_detail.html', {
+        'product': product,
+        'food_miles': food_miles,
+    })
 
 
 @login_required
