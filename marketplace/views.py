@@ -3,8 +3,8 @@ from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from .forms import RegisterForm, ProducerRegistrationForm, ProductForm, CheckoutForm
-from .models import ProducerProfile, Product, Category, Order, OrderItem, SurplusProduce
+from .forms import RegisterForm, ProducerRegistrationForm, ProductForm, CheckoutForm, CommunityPostForm
+from .models import ProducerProfile, Product, Category, Order, OrderItem, SurplusProduce, CommunityPost
 from .surplus_forms import SurplusProduceForm
 from .food_miles import calculate_food_miles
 from django.utils import timezone
@@ -271,6 +271,35 @@ def surplus_add(request):
             producer=request.user.producer_profile, is_active=True
         )
     return render(request, 'marketplace/surplus_form.html', {'form': form})
+
+
+def community_list(request):
+    posts = CommunityPost.objects.select_related('producer', 'product').order_by('-created_at')
+    filter_type = request.GET.get('type', '')
+    if filter_type:
+        posts = posts.filter(post_type=filter_type)
+    return render(request, 'marketplace/community.html', {'posts': posts, 'filter': filter_type})
+
+
+@login_required
+def community_add(request):
+    if request.user.role != 'producer':
+        return redirect('home')
+    if request.method == 'POST':
+        form = CommunityPostForm(request.POST)
+        if form.is_valid():
+            post = form.save(commit=False)
+            post.producer = request.user.producer_profile
+            post.save()
+            messages.success(request, 'Post shared with the community.')
+            return redirect('community_list')
+    else:
+        form = CommunityPostForm()
+        form.fields['product'].queryset = Product.objects.filter(
+            producer=request.user.producer_profile, is_active=True
+        )
+        form.fields['product'].required = False
+    return render(request, 'marketplace/community_form.html', {'form': form})
 
 
 @login_required

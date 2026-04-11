@@ -1,6 +1,6 @@
 from django.contrib.auth.forms import UserCreationForm
 from django import forms
-from .models import CustomUser, Product
+from .models import CustomUser, Product, CommunityPost
 
 
 class RegisterForm(UserCreationForm):
@@ -59,6 +59,15 @@ class CheckoutForm(forms.Form):
         if delivery_date < min_date:
             raise forms.ValidationError('Delivery must be at least 48 hours from now.')
         return delivery_date
+
+
+class CommunityPostForm(forms.ModelForm):
+    class Meta:
+        model = CommunityPost
+        fields = ['post_type', 'title', 'content', 'product']
+        widgets = {
+            'content': forms.Textarea(attrs={'rows': 5}),
+        }
 
 
 class ProductForm(forms.ModelForm):

@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block title %}Community — BRFN{% endblock %}
+
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+    <h2>Community</h2>
+    {% if user.is_authenticated and user.role == 'producer' %}
+        <a href="/community/add/" class="btn btn-green">+ Share Post</a>
+    {% endif %}
+</div>
+
+<div style="display:flex; gap:0.5rem; margin-bottom:1.5rem; flex-wrap:wrap;">
+    <a href="/community/" class="btn {% if not filter %}btn-green{% endif %}" style="{% if not filter %}{% else %}background:#eee; color:#333;{% endif %}">All</a>
+    <a href="/community/?type=story" class="btn {% if filter == 'story' %}btn-green{% endif %}" style="{% if filter == 'story' %}{% else %}background:#eee; color:#333;{% endif %}">Farm Stories</a>
+    <a href="/community/?type=recipe" class="btn {% if filter == 'recipe' %}btn-green{% endif %}" style="{% if filter == 'recipe' %}{% else %}background:#eee; color:#333;{% endif %}">Recipes</a>
+    <a href="/community/?type=storage" class="btn {% if filter == 'storage' %}btn-green{% endif %}" style="{% if filter == 'storage' %}{% else %}background:#eee; color:#333;{% endif %}">Storage Tips</a>
+</div>
+
+{% if posts %}
+    <div style="display:grid; gap:1rem;">
+        {% for post in posts %}
+        <div style="background:white; border-radius:8px; padding:1.2rem; box-shadow:0 1px 4px rgba(0,0,0,0.08);">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.5rem;">
+                <div>
+                    <span style="font-size:0.8rem; padding:0.2rem 0.5rem; border-radius:4px; margin-right:0.5rem;
+                        {% if post.post_type == 'story' %}background:#d4edda; color:#155724;
+                        {% elif post.post_type == 'recipe' %}background:#fff3cd; color:#856404;
+                        {% else %}background:#d1ecf1; color:#0c5460;{% endif %}">
+                        {{ post.get_post_type_display }}
+                    </span>
+                    <strong>{{ post.title }}</strong>
+                </div>
+                <span style="font-size:0.8rem; color:#888;">{{ post.created_at|date:"d M Y" }}</span>
+            </div>
+            <p style="color:#666; font-size:0.85rem; margin-bottom:0.75rem;">
+                By {{ post.producer.business_name }}
+                {% if post.product %} — about <a href="/products/{{ post.product.id }}/">{{ post.product.name }}</a>{% endif %}
+            </p>
+            <p style="font-size:0.9rem; white-space:pre-line;">{{ post.content }}</p>
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <p>No posts yet. {% if user.is_authenticated and user.role == 'producer' %}<a href="/community/add/">Be the first to share!</a>{% endif %}</p>
+{% endif %}
+{% endblock %}

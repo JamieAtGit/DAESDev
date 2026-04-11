@@ -20,4 +20,6 @@ urlpatterns = [
     path('checkout/', views.checkout, name='checkout'),
     path('surplus/', views.surplus_list, name='surplus_list'),
     path('surplus/add/', views.surplus_add, name='surplus_add'),
+    path('community/', views.community_list, name='community_list'),
+    path('community/add/', views.community_add, name='community_add'),
 ]

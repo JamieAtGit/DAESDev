@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import CustomUser, ProducerProfile, Category, Product, Order, OrderItem, SurplusProduce
+from .models import CustomUser, ProducerProfile, Category, Product, Order, OrderItem, SurplusProduce, CommunityPost
 
 
 @admin.register(CustomUser)
@@ -34,6 +34,12 @@ class ProductAdmin(admin.ModelAdmin):
 class SurplusProduceAdmin(admin.ModelAdmin):
     list_display = ['product', 'discounted_price', 'quantity_available', 'available_until', 'is_active']
     list_filter = ['is_active']
+
+
+@admin.register(CommunityPost)
+class CommunityPostAdmin(admin.ModelAdmin):
+    list_display = ['title', 'post_type', 'producer', 'product', 'created_at']
+    list_filter = ['post_type']
 
 
 class OrderItemInline(admin.TabularInline):
