@@ -4,7 +4,9 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from .forms import RegisterForm, ProducerRegistrationForm, ProductForm, CheckoutForm
-from .models import ProducerProfile, Product, Category, Order, OrderItem
+from .models import ProducerProfile, Product, Category, Order, OrderItem, SurplusProduce
+from .surplus_forms import SurplusProduceForm
+from django.utils import timezone
 from django.shortcuts import get_object_or_404
 
 
@@ -235,6 +237,33 @@ def checkout(request):
         'commission': commission,
         'grand_total': grand_total,
     })
+
+
+def surplus_list(request):
+    listings = SurplusProduce.objects.filter(
+        is_active=True,
+        available_until__gte=timezone.now()
+    ).select_related('product', 'product__producer').order_by('available_until')
+    return render(request, 'marketplace/surplus_list.html', {'listings': listings})
+
+
+@login_required
+def surplus_add(request):
+    if request.user.role != 'producer':
+        return redirect('home')
+    if request.method == 'POST':
+        form = SurplusProduceForm(request.POST)
+        if form.is_valid():
+            surplus = form.save(commit=False)
+            surplus.save()
+            messages.success(request, 'Surplus produce listed successfully.')
+            return redirect('surplus_list')
+    else:
+        form = SurplusProduceForm()
+        form.fields['product'].queryset = Product.objects.filter(
+            producer=request.user.producer_profile, is_active=True
+        )
+    return render(request, 'marketplace/surplus_form.html', {'form': form})
 
 
 @login_required

@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+
+{% block title %}Surplus Produce — BRFN{% endblock %}
+
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+    <h2>Surplus Produce — Last Minute Deals</h2>
+    {% if user.is_authenticated and user.role == 'producer' %}
+        <a href="/surplus/add/" class="btn btn-green">+ List Surplus</a>
+    {% endif %}
+</div>
+
+{% if listings %}
+    <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:1rem;">
+        {% for listing in listings %}
+        <div style="background:white; border-radius:8px; padding:1rem; box-shadow:0 1px 4px rgba(0,0,0,0.08); border-left:4px solid #e67e22;">
+            <h3 style="margin-bottom:0.3rem;">{{ listing.product.name }}</h3>
+            <p style="color:#666; font-size:0.85rem; margin-bottom:0.5rem;">{{ listing.product.producer.business_name }}</p>
+            {% if listing.reason %}
+                <p style="font-size:0.85rem; color:#555; margin-bottom:0.5rem;">{{ listing.reason }}</p>
+            {% endif %}
+            <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.5rem;">
+                <span style="text-decoration:line-through; color:#999;">£{{ listing.original_price }}</span>
+                <span style="font-size:1.1rem; font-weight:bold; color:#e67e22;">£{{ listing.discounted_price }}</span>
+                <span style="background:#ffeaa7; color:#856404; padding:0.2rem 0.4rem; border-radius:4px; font-size:0.8rem;">
+                    {{ listing.discount_percentage }}% off
+                </span>
+            </div>
+            <p style="font-size:0.85rem; color:#666;">{{ listing.quantity_available }} available</p>
+            <p style="font-size:0.8rem; color:#e67e22; margin-top:0.4rem;">Until: {{ listing.available_until|date:"d M H:i" }}</p>
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <p>No surplus produce listed right now. Check back later!</p>
+{% endif %}
+{% endblock %}
