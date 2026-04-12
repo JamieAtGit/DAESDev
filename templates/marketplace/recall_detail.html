@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+
+{% block title %}Recall Detail — BRFN{% endblock %}
+
+{% block content %}
+<h2 style="margin-bottom:0.5rem;">Recall: {{ recall.product.name }}</h2>
+<p style="color:#666; margin-bottom:1.5rem;">Issued {{ recall.created_at|date:"d M Y H:i" }} by {{ recall.issued_by.business_name }}</p>
+
+<div style="background:white; padding:1.2rem; border-radius:8px; margin-bottom:1.5rem;">
+    <p style="margin-bottom:0.5rem;"><strong>Reason:</strong> {{ recall.reason }}</p>
+    {% if recall.batch_info %}
+        <p style="margin-bottom:0.5rem;"><strong>Batch:</strong> {{ recall.batch_info }}</p>
+    {% endif %}
+    <p><strong>Status:</strong> {{ recall.get_status_display }}</p>
+</div>
+
+<h3 style="margin-bottom:1rem;">Affected Customers ({{ affected_items|length }} orders)</h3>
+{% if affected_items %}
+    <table>
+        <thead>
+            <tr>
+                <th>Order #</th>
+                <th>Customer</th>
+                <th>Email</th>
+                <th>Order Date</th>
+                <th>Qty</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in affected_items %}
+            <tr>
+                <td>{{ item.order.id }}</td>
+                <td>{{ item.order.customer.username }}</td>
+                <td>{{ item.order.customer.email }}</td>
+                <td>{{ item.order.created_at|date:"d M Y" }}</td>
+                <td>{{ item.quantity }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p>No affected orders found for this recall period.</p>
+{% endif %}
+{% endblock %}

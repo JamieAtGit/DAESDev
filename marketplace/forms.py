@@ -1,6 +1,6 @@
 from django.contrib.auth.forms import UserCreationForm
 from django import forms
-from .models import CustomUser, Product, CommunityPost
+from .models import CustomUser, Product, CommunityPost, RecallNotice
 
 
 class RegisterForm(UserCreationForm):
@@ -67,6 +67,17 @@ class CommunityPostForm(forms.ModelForm):
         fields = ['post_type', 'title', 'content', 'product']
         widgets = {
             'content': forms.Textarea(attrs={'rows': 5}),
+        }
+
+
+class RecallNoticeForm(forms.ModelForm):
+    class Meta:
+        model = RecallNotice
+        fields = ['product', 'reason', 'batch_info', 'affected_from', 'affected_to']
+        widgets = {
+            'reason': forms.Textarea(attrs={'rows': 3}),
+            'affected_from': forms.DateInput(attrs={'type': 'date'}),
+            'affected_to': forms.DateInput(attrs={'type': 'date'}),
         }
 
 

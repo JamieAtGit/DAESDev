@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import CustomUser, ProducerProfile, Category, Product, Order, OrderItem, SurplusProduce, CommunityPost, PaymentSettlement, AuditLog
+from .models import CustomUser, ProducerProfile, Category, Product, Order, OrderItem, SurplusProduce, CommunityPost, PaymentSettlement, AuditLog, RecallNotice
 
 
 @admin.register(CustomUser)
@@ -52,6 +52,12 @@ class PaymentSettlementAdmin(admin.ModelAdmin):
 class AuditLogAdmin(admin.ModelAdmin):
     list_display = ['timestamp', 'user', 'action', 'resource_type', 'resource_id']
     readonly_fields = ['timestamp', 'user', 'action', 'resource_type', 'resource_id', 'ip_address', 'notes']
+
+
+@admin.register(RecallNotice)
+class RecallNoticeAdmin(admin.ModelAdmin):
+    list_display = ['product', 'issued_by', 'status', 'affected_from', 'affected_to', 'created_at']
+    list_filter = ['status']
 
 
 class OrderItemInline(admin.TabularInline):

@@ -22,4 +22,7 @@ urlpatterns = [
     path('surplus/add/', views.surplus_add, name='surplus_add'),
     path('community/', views.community_list, name='community_list'),
     path('community/add/', views.community_add, name='community_add'),
+    path('recalls/', views.recall_list, name='recall_list'),
+    path('recalls/new/', views.recall_new, name='recall_new'),
+    path('recalls/<int:pk>/', views.recall_detail, name='recall_detail'),
 ]

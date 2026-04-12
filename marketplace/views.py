@@ -3,8 +3,8 @@ from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from .forms import RegisterForm, ProducerRegistrationForm, ProductForm, CheckoutForm, CommunityPostForm
-from .models import ProducerProfile, Product, Category, Order, OrderItem, SurplusProduce, CommunityPost, PaymentSettlement, AuditLog
+from .forms import RegisterForm, ProducerRegistrationForm, ProductForm, CheckoutForm, CommunityPostForm, RecallNoticeForm
+from .models import ProducerProfile, Product, Category, Order, OrderItem, SurplusProduce, CommunityPost, PaymentSettlement, AuditLog, RecallNotice
 from .surplus_forms import SurplusProduceForm
 from .food_miles import calculate_food_miles
 from django.utils import timezone
@@ -331,6 +331,51 @@ def community_add(request):
         )
         form.fields['product'].required = False
     return render(request, 'marketplace/community_form.html', {'form': form})
+
+
+def recall_list(request):
+    recalls = RecallNotice.objects.select_related('product', 'issued_by').order_by('-created_at')
+    return render(request, 'marketplace/recall_list.html', {'recalls': recalls})
+
+
+@login_required
+def recall_new(request):
+    if request.user.role != 'producer':
+        return redirect('home')
+    if request.method == 'POST':
+        form = RecallNoticeForm(request.POST)
+        if form.is_valid():
+            recall = form.save(commit=False)
+            recall.issued_by = request.user.producer_profile
+            recall.status = 'issued'
+            recall.save()
+            AuditLog.objects.create(
+                user=request.user,
+                action=f'Recall issued for {recall.product.name}',
+                resource_type='RecallNotice',
+                resource_id=str(recall.id),
+                ip_address=request.META.get('REMOTE_ADDR'),
+            )
+            messages.success(request, 'Recall notice issued.')
+            return redirect('recall_detail', pk=recall.id)
+    else:
+        form = RecallNoticeForm()
+        form.fields['product'].queryset = Product.objects.filter(
+            producer=request.user.producer_profile
+        )
+    return render(request, 'marketplace/recall_form.html', {'form': form})
+
+
+@login_required
+def recall_detail(request, pk):
+    if request.user.role != 'producer':
+        return redirect('home')
+    recall = get_object_or_404(RecallNotice, pk=pk, issued_by=request.user.producer_profile)
+    affected_items = recall.get_affected_orders()
+    return render(request, 'marketplace/recall_detail.html', {
+        'recall': recall,
+        'affected_items': affected_items,
+    })
 
 
 @login_required
