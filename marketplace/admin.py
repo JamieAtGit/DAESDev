@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import CustomUser, ProducerProfile, Category, Product, Order, OrderItem, SurplusProduce, CommunityPost
+from .models import CustomUser, ProducerProfile, Category, Product, Order, OrderItem, SurplusProduce, CommunityPost, PaymentSettlement, AuditLog
 
 
 @admin.register(CustomUser)
@@ -40,6 +40,18 @@ class SurplusProduceAdmin(admin.ModelAdmin):
 class CommunityPostAdmin(admin.ModelAdmin):
     list_display = ['title', 'post_type', 'producer', 'product', 'created_at']
     list_filter = ['post_type']
+
+
+@admin.register(PaymentSettlement)
+class PaymentSettlementAdmin(admin.ModelAdmin):
+    list_display = ['producer', 'order', 'gross_amount', 'commission_deducted', 'net_amount', 'status', 'week_ending']
+    list_filter = ['status', 'week_ending']
+
+
+@admin.register(AuditLog)
+class AuditLogAdmin(admin.ModelAdmin):
+    list_display = ['timestamp', 'user', 'action', 'resource_type', 'resource_id']
+    readonly_fields = ['timestamp', 'user', 'action', 'resource_type', 'resource_id', 'ip_address', 'notes']
 
 
 class OrderItemInline(admin.TabularInline):

@@ -4,7 +4,7 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from .forms import RegisterForm, ProducerRegistrationForm, ProductForm, CheckoutForm, CommunityPostForm
-from .models import ProducerProfile, Product, Category, Order, OrderItem, SurplusProduce, CommunityPost
+from .models import ProducerProfile, Product, Category, Order, OrderItem, SurplusProduce, CommunityPost, PaymentSettlement, AuditLog
 from .surplus_forms import SurplusProduceForm
 from .food_miles import calculate_food_miles
 from django.utils import timezone
@@ -232,6 +232,37 @@ def checkout(request):
                     unit_price=item['price'],
                 )
             del request.session['cart']
+
+            # create per-producer settlement records
+            from datetime import date, timedelta
+            week_ending = date.today() + timedelta(days=(6 - date.today().weekday()))
+            producers_in_order = set()
+            for item in order.items.all():
+                if item.product:
+                    producers_in_order.add(item.product.producer)
+            for producer in producers_in_order:
+                producer_items = order.items.filter(product__producer=producer)
+                gross = sum(float(i.unit_price) * i.quantity for i in producer_items)
+                commission = round(gross * 0.05, 2)
+                net = round(gross - commission, 2)
+                PaymentSettlement.objects.create(
+                    producer=producer,
+                    order=order,
+                    gross_amount=gross,
+                    commission_deducted=commission,
+                    net_amount=net,
+                    week_ending=week_ending,
+                )
+
+            # audit log
+            AuditLog.objects.create(
+                user=request.user,
+                action=f'Order #{order.id} placed',
+                resource_type='Order',
+                resource_id=str(order.id),
+                ip_address=request.META.get('REMOTE_ADDR'),
+            )
+
             messages.success(request, f'Order #{order.id} placed successfully!')
             return redirect('home')
     else:
