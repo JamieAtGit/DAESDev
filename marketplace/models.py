@@ -130,6 +130,35 @@ class AuditLog(models.Model):
     def __str__(self):
         return f"[{self.timestamp:%Y-%m-%d %H:%M}] {self.user} — {self.action}"
 
+
+class RecallNotice(models.Model):
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('issued', 'Issued'),
+        ('resolved', 'Resolved'),
+    ]
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='recalls')
+    issued_by = models.ForeignKey(ProducerProfile, on_delete=models.CASCADE, related_name='recalls')
+    reason = models.TextField()
+    batch_info = models.CharField(max_length=200, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    affected_from = models.DateField(null=True, blank=True)
+    affected_to = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"Recall: {self.product.name} — {self.status}"
+
+    def get_affected_orders(self):
+        from django.db.models import Q
+        qs = OrderItem.objects.filter(product=self.product).select_related('order', 'order__customer')
+        if self.affected_from:
+            qs = qs.filter(order__created_at__date__gte=self.affected_from)
+        if self.affected_to:
+            qs = qs.filter(order__created_at__date__lte=self.affected_to)
+        return qs
+
     @property
     def discount_percentage(self):
         if self.original_price:
