@@ -159,18 +159,13 @@ class RecallNotice(models.Model):
             qs = qs.filter(order__created_at__date__lte=self.affected_to)
         return qs
 
-    @property
-    def discount_percentage(self):
-        if self.original_price:
-            saving = self.original_price - self.discounted_price
-            return round((saving / self.original_price) * 100)
-        return 0
 
 
 class Order(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('confirmed', 'Confirmed'),
+        ('ready', 'Ready for Delivery'),
         ('delivered', 'Delivered'),
     ]
     customer = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='orders')
