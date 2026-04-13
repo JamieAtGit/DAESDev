@@ -46,6 +46,9 @@
     <div style="text-align:right; margin-bottom:1rem;">
         <p style="font-size:1.1rem;">Total: <strong>£{{ total }}</strong></p>
         <p style="color:#666; font-size:0.9rem;">5% network commission will be added at checkout</p>
+        {% if total_food_miles is not None %}
+        <p style="color:#2d6a2d; font-size:0.9rem; margin-top:0.4rem;">🌿 Total food miles for this order: <strong>{{ total_food_miles }} miles</strong></p>
+        {% endif %}
     </div>
     <div style="text-align:right;">
         <a href="/checkout/" class="btn btn-green">Proceed to Checkout</a>

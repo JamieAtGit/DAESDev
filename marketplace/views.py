@@ -133,6 +133,7 @@ def product_list(request):
     search = request.GET.get('search', '')
     category = request.GET.get('category', '')
     organic = request.GET.get('organic', '')
+    allergen = request.GET.get('allergen', '')
 
     if search:
         products = products.filter(name__icontains=search) | products.filter(description__icontains=search)
@@ -140,6 +141,10 @@ def product_list(request):
         products = products.filter(category__slug=category)
     if organic:
         products = products.filter(is_organic=True)
+    if allergen == 'none':
+        products = products.filter(allergens='') | products.filter(allergens__iexact='none')
+    elif allergen:
+        products = products.filter(allergens__icontains=allergen)
 
     return render(request, 'marketplace/product_list.html', {
         'products': products,
@@ -147,6 +152,7 @@ def product_list(request):
         'search': search,
         'category': category,
         'organic': organic,
+        'allergen': allergen,
     })
 
 
@@ -177,6 +183,7 @@ def cart_add(request, pk):
             'price': str(product.price),
             'quantity': quantity,
             'producer': product.producer.business_name,
+            'producer_postcode': product.producer.postcode,
         }
     request.session['cart'] = cart
     messages.success(request, f'"{product.name}" added to cart.')
@@ -188,8 +195,20 @@ def cart_view(request):
     cart = request.session.get('cart', {})
     for item in cart.values():
         item['subtotal'] = round(float(item['price']) * item['quantity'], 2)
+        postcode = item.get('producer_postcode', '')
+        if postcode:
+            fm = calculate_food_miles('BS11AA', postcode)
+            item['food_miles'] = fm
+        else:
+            item['food_miles'] = None
     total = round(sum(item['subtotal'] for item in cart.values()), 2)
-    return render(request, 'marketplace/cart.html', {'cart': cart, 'total': total})
+    food_miles_values = [item['food_miles'] for item in cart.values() if item['food_miles'] is not None]
+    total_food_miles = round(sum(food_miles_values), 1) if food_miles_values else None
+    return render(request, 'marketplace/cart.html', {
+        'cart': cart,
+        'total': total,
+        'total_food_miles': total_food_miles,
+    })
 
 
 @login_required
@@ -233,6 +252,8 @@ def checkout(request):
                     quantity=item['quantity'],
                     unit_price=item['price'],
                 )
+                product.stock = max(0, product.stock - item['quantity'])
+                product.save(update_fields=['stock'])
             del request.session['cart']
 
             # create per-producer settlement records
