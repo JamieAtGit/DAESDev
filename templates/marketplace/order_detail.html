@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Order #{{ order.id }}{% endblock %}
+{% block content %}
+<h2>Order #{{ order.id }}</h2>
+
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; margin-bottom:1.5rem;">
+    <div style="background:white; padding:1rem; border-radius:8px;">
+        <h3>Customer Details</h3>
+        <p><strong>Name:</strong> {{ order.customer.username }}</p>
+        <p style="margin-top:0.4rem;"><strong>Delivery Address:</strong><br>{{ order.delivery_address }}</p>
+        <p style="margin-top:0.4rem;"><strong>Delivery Date:</strong> {{ order.delivery_date|date:"d M Y" }}</p>
+        <p style="margin-top:0.4rem;"><strong>Order Placed:</strong> {{ order.created_at|date:"d M Y H:i" }}</p>
+    </div>
+    <div style="background:white; padding:1rem; border-radius:8px;">
+        <h3>Order Status</h3>
+        <p style="margin-bottom:0.75rem;">
+            <span style="padding:0.3rem 0.8rem; border-radius:4px; font-size:0.9rem;
+                background:{% if order.status == 'pending' %}#fff3cd{% elif order.status == 'confirmed' %}#cce5ff{% elif order.status == 'ready' %}#d4edda{% else %}#e2e3e5{% endif %};
+                color:{% if order.status == 'pending' %}#856404{% elif order.status == 'confirmed' %}#004085{% elif order.status == 'ready' %}#155724{% else %}#383d41{% endif %};">
+                {{ order.get_status_display }}
+            </span>
+        </p>
+        <p><strong>Order #:</strong> {{ order.id }}</p>
+        <p style="margin-top:0.4rem;"><strong>Total Value:</strong> £{{ order.total_price }}</p>
+        {% if next_status %}
+        <form method="post" action="{% url 'order_status_update' order.pk %}" style="margin-top:1rem;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-green">
+                {% if next_status == 'confirmed' %}Mark as Confirmed
+                {% elif next_status == 'ready' %}Mark as Ready for Delivery
+                {% elif next_status == 'delivered' %}Mark as Delivered
+                {% endif %}
+            </button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<h3>Your Items in This Order</h3>
+<table style="margin-bottom:1.5rem;">
+    <thead>
+        <tr>
+            <th>Product</th>
+            <th>Quantity</th>
+            <th>Unit Price</th>
+            <th>Subtotal</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in items %}
+        <tr>
+            <td>{{ item.product.name }}</td>
+            <td>{{ item.quantity }}</td>
+            <td>£{{ item.unit_price }}</td>
+            <td>£{% widthratio item.quantity 1 item.unit_price %}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<a href="{% url 'order_list' %}" style="color:#2d6a2d;">&larr; Back to Orders</a>
+{% endblock %}
