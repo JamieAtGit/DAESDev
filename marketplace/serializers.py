@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Category, Product, ProducerProfile, Order, OrderItem
+from .models import Category, Product, ProducerProfile, Order, OrderItem, SurplusProduce, CommunityPost
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -45,6 +45,40 @@ class OrderItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderItem
         fields = ['id', 'product', 'product_name', 'quantity', 'unit_price']
+
+
+class SurplusProduceSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    producer = serializers.CharField(source='product.producer.business_name', read_only=True)
+    discount_percentage = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SurplusProduce
+        fields = [
+            'id', 'product', 'product_name', 'producer',
+            'original_price', 'discounted_price', 'discount_percentage',
+            'quantity_available', 'reason', 'available_until', 'is_active',
+        ]
+        read_only_fields = ['id']
+
+    def get_discount_percentage(self, obj):
+        if obj.original_price:
+            saving = obj.original_price - obj.discounted_price
+            return round((saving / obj.original_price) * 100)
+        return 0
+
+
+class CommunityPostSerializer(serializers.ModelSerializer):
+    producer_name = serializers.CharField(source='producer.business_name', read_only=True)
+    post_type_display = serializers.CharField(source='get_post_type_display', read_only=True)
+
+    class Meta:
+        model = CommunityPost
+        fields = [
+            'id', 'producer', 'producer_name', 'product',
+            'post_type', 'post_type_display', 'title', 'content', 'created_at',
+        ]
+        read_only_fields = ['id', 'producer', 'created_at']
 
 
 class OrderSerializer(serializers.ModelSerializer):
