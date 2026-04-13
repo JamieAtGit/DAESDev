@@ -1,3 +1,5 @@
+import csv
+from django.http import HttpResponse
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.forms import AuthenticationForm
@@ -346,6 +348,22 @@ def settlements(request):
     })
 
 
+@login_required
+def settlements_export(request):
+    if request.user.role != 'producer':
+        return redirect('home')
+    producer = request.user.producer_profile
+    settlement_list = PaymentSettlement.objects.filter(producer=producer).order_by('-week_ending')
+
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="settlements.csv"'
+    writer = csv.writer(response)
+    writer.writerow(['Order #', 'Week Ending', 'Gross (£)', 'Commission (£)', 'Net Payout (£)', 'Status'])
+    for s in settlement_list:
+        writer.writerow([s.order_id, s.week_ending, s.gross_amount, s.commission_deducted, s.net_amount, s.get_status_display()])
+    return response
+
+
 def recall_list(request):
     recalls = RecallNotice.objects.select_related('product', 'issued_by').order_by('-created_at')
     return render(request, 'marketplace/recall_list.html', {'recalls': recalls})
@@ -389,6 +407,12 @@ def recall_detail(request, pk):
         'recall': recall,
         'affected_items': affected_items,
     })
+
+
+@login_required
+def my_orders(request):
+    orders = Order.objects.filter(customer=request.user).prefetch_related('items__product').order_by('-created_at')
+    return render(request, 'marketplace/my_orders.html', {'orders': orders})
 
 
 @login_required

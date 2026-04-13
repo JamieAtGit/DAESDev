@@ -3,7 +3,10 @@
 {% block title %}Payment Settlements — BRFN{% endblock %}
 
 {% block content %}
-<h2 style="margin-bottom:1rem;">My Payment Settlements</h2>
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+    <h2>My Payment Settlements</h2>
+    <a href="{% url 'settlements_export' %}" class="btn btn-green">Download CSV</a>
+</div>
 
 {% if settlements %}
     <table>
