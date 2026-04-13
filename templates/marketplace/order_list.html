@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Incoming Orders{% endblock %}
+{% block content %}
+<h2>Incoming Orders</h2>
+
+{% if orders %}
+<table>
+    <thead>
+        <tr>
+            <th>Order #</th>
+            <th>Customer</th>
+            <th>Order Date</th>
+            <th>Delivery Date</th>
+            <th>Status</th>
+            <th>Value</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for order in orders %}
+        <tr>
+            <td>#{{ order.id }}</td>
+            <td>{{ order.customer.username }}</td>
+            <td>{{ order.created_at|date:"d M Y" }}</td>
+            <td>{{ order.delivery_date|date:"d M Y" }}</td>
+            <td>
+                <span style="padding:0.2rem 0.6rem; border-radius:4px; font-size:0.85rem;
+                    background:{% if order.status == 'pending' %}#fff3cd{% elif order.status == 'confirmed' %}#cce5ff{% elif order.status == 'ready' %}#d4edda{% else %}#e2e3e5{% endif %};
+                    color:{% if order.status == 'pending' %}#856404{% elif order.status == 'confirmed' %}#004085{% elif order.status == 'ready' %}#155724{% else %}#383d41{% endif %};">
+                    {{ order.get_status_display }}
+                </span>
+            </td>
+            <td>£{{ order.total_price }}</td>
+            <td><a href="{% url 'order_detail' order.pk %}" class="btn btn-green">View</a></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p style="color:#888; margin-top:1rem;">No orders yet.</p>
+{% endif %}
+{% endblock %}

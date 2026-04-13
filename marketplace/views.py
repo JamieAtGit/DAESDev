@@ -392,6 +392,58 @@ def recall_detail(request, pk):
 
 
 @login_required
+def order_list(request):
+    if request.user.role != 'producer':
+        return redirect('home')
+    producer = request.user.producer_profile
+    orders = Order.objects.filter(
+        items__product__producer=producer
+    ).distinct().order_by('delivery_date')
+    return render(request, 'marketplace/order_list.html', {'orders': orders})
+
+
+@login_required
+def order_detail(request, pk):
+    if request.user.role != 'producer':
+        return redirect('home')
+    producer = request.user.producer_profile
+    order = get_object_or_404(Order, pk=pk, items__product__producer=producer)
+    items = order.items.filter(product__producer=producer).select_related('product')
+    next_status = {
+        'pending': 'confirmed',
+        'confirmed': 'ready',
+        'ready': 'delivered',
+    }.get(order.status)
+    return render(request, 'marketplace/order_detail.html', {
+        'order': order,
+        'items': items,
+        'next_status': next_status,
+    })
+
+
+@login_required
+def order_status_update(request, pk):
+    if request.method != 'POST' or request.user.role != 'producer':
+        return redirect('order_list')
+    producer = request.user.producer_profile
+    order = get_object_or_404(Order, pk=pk, items__product__producer=producer)
+    progression = {'pending': 'confirmed', 'confirmed': 'ready', 'ready': 'delivered'}
+    new_status = progression.get(order.status)
+    if new_status:
+        order.status = new_status
+        order.save()
+        AuditLog.objects.create(
+            user=request.user,
+            action=f'Order #{order.id} status updated to {new_status}',
+            resource_type='Order',
+            resource_id=str(order.id),
+            ip_address=request.META.get('REMOTE_ADDR'),
+        )
+        messages.success(request, f'Order #{order.id} marked as {order.get_status_display()}.')
+    return redirect('order_detail', pk=pk)
+
+
+@login_required
 def cart_update(request, pk):
     if request.method != 'POST':
         return redirect('cart_view')

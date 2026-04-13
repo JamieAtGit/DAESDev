@@ -26,4 +26,7 @@ urlpatterns = [
     path('recalls/', views.recall_list, name='recall_list'),
     path('recalls/new/', views.recall_new, name='recall_new'),
     path('recalls/<int:pk>/', views.recall_detail, name='recall_detail'),
+    path('orders/', views.order_list, name='order_list'),
+    path('orders/<int:pk>/', views.order_detail, name='order_detail'),
+    path('orders/<int:pk>/status/', views.order_status_update, name='order_status_update'),
 ]
