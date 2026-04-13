@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block title %}Payment Settlements — BRFN{% endblock %}
+
+{% block content %}
+<h2 style="margin-bottom:1rem;">My Payment Settlements</h2>
+
+{% if settlements %}
+    <table>
+        <thead>
+            <tr>
+                <th>Order #</th>
+                <th>Week Ending</th>
+                <th>Gross</th>
+                <th>Commission (5%)</th>
+                <th>Net Payout</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in settlements %}
+            <tr>
+                <td>#{{ s.order.id }}</td>
+                <td>{{ s.week_ending }}</td>
+                <td>£{{ s.gross_amount }}</td>
+                <td>£{{ s.commission_deducted }}</td>
+                <td><strong>£{{ s.net_amount }}</strong></td>
+                <td>
+                    <span style="padding:0.2rem 0.5rem; border-radius:4px; font-size:0.85rem;
+                        {% if s.status == 'paid' %}background:#d4edda; color:#155724;
+                        {% else %}background:#fff3cd; color:#856404;{% endif %}">
+                        {{ s.get_status_display }}
+                    </span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div style="background:white; padding:1rem; border-radius:8px; margin-top:1rem; text-align:right;">
+        <p>Total earned: <strong>£{{ total_net }}</strong></p>
+        <p style="color:#666; font-size:0.85rem;">After 5% network commission</p>
+    </div>
+{% else %}
+    <p>No settlements yet. Settlements are generated automatically when customers place orders.</p>
+{% endif %}
+{% endblock %}
