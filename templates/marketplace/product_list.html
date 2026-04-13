@@ -17,6 +17,14 @@
     <label style="display:flex; align-items:center; gap:0.4rem;">
         <input type="checkbox" name="organic" value="1" {% if organic %}checked{% endif %}> Organic only
     </label>
+    <select name="allergen" style="padding:0.5rem; border:1px solid #ccc; border-radius:4px;">
+        <option value="">All allergens</option>
+        <option value="none" {% if allergen == 'none' %}selected{% endif %}>No allergens</option>
+        <option value="gluten" {% if allergen == 'gluten' %}selected{% endif %}>Contains gluten</option>
+        <option value="eggs" {% if allergen == 'eggs' %}selected{% endif %}>Contains eggs</option>
+        <option value="milk" {% if allergen == 'milk' %}selected{% endif %}>Contains milk/dairy</option>
+        <option value="nuts" {% if allergen == 'nuts' %}selected{% endif %}>Contains nuts</option>
+    </select>
     <button type="submit" class="btn btn-green">Filter</button>
 </form>
 
