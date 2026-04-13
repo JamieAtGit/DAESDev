@@ -333,6 +333,19 @@ def community_add(request):
     return render(request, 'marketplace/community_form.html', {'form': form})
 
 
+@login_required
+def settlements(request):
+    if request.user.role != 'producer':
+        return redirect('home')
+    producer = request.user.producer_profile
+    settlement_list = PaymentSettlement.objects.filter(producer=producer).order_by('-week_ending')
+    total_net = sum(s.net_amount for s in settlement_list)
+    return render(request, 'marketplace/settlements.html', {
+        'settlements': settlement_list,
+        'total_net': round(total_net, 2),
+    })
+
+
 def recall_list(request):
     recalls = RecallNotice.objects.select_related('product', 'issued_by').order_by('-created_at')
     return render(request, 'marketplace/recall_list.html', {'recalls': recalls})
