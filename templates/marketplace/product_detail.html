@@ -26,6 +26,19 @@
         {% if product.farm_origin %}
         <tr><td style="padding:0.4rem 0; color:#666;">Farm Origin</td><td>{{ product.farm_origin }}</td></tr>
         {% endif %}
+        {% if product.is_seasonal %}
+        <tr>
+            <td style="padding:0.4rem 0; color:#666;">Availability</td>
+            <td>
+                <span style="background:#d4edda; color:#155724; padding:0.2rem 0.5rem; border-radius:4px; font-size:0.85rem;">In Season</span>
+                {% if product.seasonal_months %}
+                <span style="font-size:0.85rem; color:#555; margin-left:0.4rem;">{{ product.seasonal_months }}</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% else %}
+        <tr><td style="padding:0.4rem 0; color:#666;">Availability</td><td>Available year-round</td></tr>
+        {% endif %}
         <tr><td style="padding:0.4rem 0; color:#666;">Lead Time</td><td>{{ product.lead_time_hours }} hours</td></tr>
         {% if food_miles is not None %}
         <tr>
