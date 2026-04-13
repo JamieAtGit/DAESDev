@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}My Orders{% endblock %}
+{% block content %}
+<h2>My Orders</h2>
+
+{% if orders %}
+    {% for order in orders %}
+    <div style="background:white; border-radius:8px; padding:1.2rem; margin-bottom:1rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+            <h3 style="margin:0;">Order #{{ order.id }}</h3>
+            <span style="padding:0.2rem 0.6rem; border-radius:4px; font-size:0.85rem;
+                background:{% if order.status == 'pending' %}#fff3cd{% elif order.status == 'confirmed' %}#cce5ff{% elif order.status == 'ready' %}#d4edda{% else %}#e2e3e5{% endif %};
+                color:{% if order.status == 'pending' %}#856404{% elif order.status == 'confirmed' %}#004085{% elif order.status == 'ready' %}#155724{% else %}#383d41{% endif %};">
+                {{ order.get_status_display }}
+            </span>
+        </div>
+        <p style="color:#666; font-size:0.9rem; margin-bottom:0.5rem;">
+            Placed: {{ order.created_at|date:"d M Y" }} &nbsp;|&nbsp; Delivery: {{ order.delivery_date|date:"d M Y" }}
+        </p>
+        <table style="margin-bottom:0.5rem;">
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>Producer</th>
+                    <th>Qty</th>
+                    <th>Price</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in order.items.all %}
+                <tr>
+                    <td>{{ item.product.name }}</td>
+                    <td>{{ item.product.producer.business_name }}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td>£{{ item.unit_price }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <p style="text-align:right; font-size:0.9rem; color:#555;">
+            Total: <strong>£{{ order.total_price }}</strong>
+        </p>
+    </div>
+    {% endfor %}
+{% else %}
+    <p style="color:#888; margin-top:1rem;">You have no orders yet. <a href="/products/">Browse products</a></p>
+{% endif %}
+{% endblock %}
