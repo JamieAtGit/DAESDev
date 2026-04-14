@@ -11,6 +11,9 @@ class CustomUser(AbstractUser):
         ('admin', 'Admin'),
     ]
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='customer')
+    phone = models.CharField(max_length=20, blank=True)
+    delivery_address = models.TextField(blank=True)
+    delivery_postcode = models.CharField(max_length=10, blank=True)
 
     def __str__(self):
         return f"{self.username} ({self.role})"
@@ -80,6 +83,13 @@ class SurplusProduce(models.Model):
 
     def __str__(self):
         return f"Surplus: {self.product.name} at £{self.discounted_price}"
+
+    @property
+    def discount_percentage(self):
+        if self.original_price:
+            saving = self.original_price - self.discounted_price
+            return round((saving / self.original_price) * 100)
+        return 0
 
 
 class CommunityPost(models.Model):
@@ -175,6 +185,7 @@ class Order(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     delivery_address = models.TextField()
     delivery_date = models.DateField()
+    special_instructions = models.TextField(blank=True)
     commission_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     def __str__(self):
