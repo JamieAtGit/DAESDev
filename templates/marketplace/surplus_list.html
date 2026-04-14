@@ -28,6 +28,21 @@
             </div>
             <p style="font-size:0.85rem; color:#666;">{{ listing.quantity_available }} available</p>
             <p style="font-size:0.8rem; color:#e67e22; margin-top:0.4rem;">Until: {{ listing.available_until|date:"d M H:i" }}</p>
+            {% if user.is_authenticated and user.role == 'producer' and listing.product.producer.user == user %}
+            <form method="post" action="{% url 'surplus_remove' listing.pk %}" style="margin-top:0.75rem;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-red" style="width:100%; font-size:0.85rem;">Remove Listing</button>
+            </form>
+            {% elif user.is_authenticated and user.role != 'producer' %}
+            <form method="post" action="{% url 'surplus_cart_add' listing.pk %}" style="margin-top:0.75rem; display:flex; gap:0.5rem;">
+                {% csrf_token %}
+                <input type="number" name="quantity" value="1" min="1" max="{{ listing.quantity_available }}"
+                    style="width:55px; padding:0.3rem; border:1px solid #ccc; border-radius:4px; font-size:0.85rem;">
+                <button type="submit" class="btn btn-green" style="flex:1; font-size:0.85rem;">Add to Cart</button>
+            </form>
+            {% elif not user.is_authenticated %}
+            <a href="/login/" class="btn btn-green" style="display:block; margin-top:0.75rem; text-align:center; font-size:0.85rem;">Login to buy</a>
+            {% endif %}
         </div>
         {% endfor %}
     </div>

@@ -5,7 +5,7 @@ from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from .forms import RegisterForm, ProducerRegistrationForm, ProductForm, CheckoutForm, CommunityPostForm, RecallNoticeForm
+from .forms import RegisterForm, ProducerRegistrationForm, CommunityGroupRegistrationForm, ProductForm, CheckoutForm, CommunityPostForm, RecallNoticeForm
 from .models import ProducerProfile, Product, Category, Order, OrderItem, SurplusProduce, CommunityPost, PaymentSettlement, AuditLog, RecallNotice
 from .surplus_forms import SurplusProduceForm
 from .food_miles import calculate_food_miles
@@ -59,6 +59,25 @@ def logout_view(request):
     return redirect('home')
 
 
+def register_community_group(request):
+    if request.user.is_authenticated:
+        return redirect('home')
+    if request.method == 'POST':
+        form = CommunityGroupRegistrationForm(request.POST)
+        if form.is_valid():
+            user = form.save(commit=False)
+            user.role = 'community_group'
+            user.phone = form.cleaned_data.get('phone', '')
+            user.delivery_address = form.cleaned_data.get('delivery_address', '')
+            user.delivery_postcode = form.cleaned_data.get('delivery_postcode', '')
+            user.save()
+            messages.success(request, 'Community group account created! Please log in.')
+            return redirect('login')
+    else:
+        form = CommunityGroupRegistrationForm()
+    return render(request, 'marketplace/community_group_register.html', {'form': form})
+
+
 def register_producer(request):
     if request.user.is_authenticated:
         return redirect('home')
@@ -67,6 +86,7 @@ def register_producer(request):
         if form.is_valid():
             user = form.save(commit=False)
             user.role = 'producer'
+            user.phone = form.cleaned_data.get('phone', '')
             user.save()
             ProducerProfile.objects.create(
                 user=user,
@@ -169,10 +189,17 @@ def product_detail(request, pk):
     product = get_object_or_404(Product, pk=pk, is_active=True)
     food_miles = None
     if product.producer.postcode:
-        food_miles = calculate_food_miles('BS11AA', product.producer.postcode)
+        customer_postcode = (
+            request.user.delivery_postcode
+            if request.user.is_authenticated and request.user.delivery_postcode
+            else 'BS11AA'
+        )
+        food_miles = calculate_food_miles(customer_postcode, product.producer.postcode)
+    linked_posts = product.community_posts.select_related('producer').order_by('-created_at')[:3]
     return render(request, 'marketplace/product_detail.html', {
         'product': product,
         'food_miles': food_miles,
+        'linked_posts': linked_posts,
     })
 
 
@@ -250,6 +277,7 @@ def checkout(request):
                 customer=request.user,
                 delivery_address=form.cleaned_data['delivery_address'],
                 delivery_date=form.cleaned_data['delivery_date'],
+                special_instructions=form.cleaned_data.get('special_instructions', ''),
                 total_price=grand_total,
                 commission_amount=commission,
             )
@@ -298,7 +326,10 @@ def checkout(request):
             messages.success(request, f'Order #{order.id} placed successfully!')
             return redirect('home')
     else:
-        form = CheckoutForm()
+        initial = {}
+        if request.user.delivery_address:
+            initial['delivery_address'] = request.user.delivery_address
+        form = CheckoutForm(initial=initial)
 
     return render(request, 'marketplace/checkout.html', {
         'form': form,
@@ -334,6 +365,43 @@ def surplus_add(request):
             producer=request.user.producer_profile, is_active=True
         )
     return render(request, 'marketplace/surplus_form.html', {'form': form})
+
+
+@login_required
+def surplus_remove(request, pk):
+    if request.method != 'POST' or request.user.role != 'producer':
+        return redirect('surplus_list')
+    surplus = get_object_or_404(SurplusProduce, pk=pk, product__producer=request.user.producer_profile)
+    surplus.is_active = False
+    surplus.save(update_fields=['is_active'])
+    messages.success(request, 'Surplus listing removed.')
+    return redirect('surplus_list')
+
+
+@login_required
+def surplus_cart_add(request, pk):
+    if request.method != 'POST':
+        return redirect('surplus_list')
+    surplus = get_object_or_404(SurplusProduce, pk=pk, is_active=True)
+    quantity = int(request.POST.get('quantity', 1))
+    if quantity > surplus.quantity_available:
+        messages.error(request, f'Only {surplus.quantity_available} available.')
+        return redirect('surplus_list')
+    cart = request.session.get('cart', {})
+    product_id = str(surplus.product.id)
+    if product_id in cart:
+        cart[product_id]['quantity'] += quantity
+    else:
+        cart[product_id] = {
+            'name': f'{surplus.product.name} (Surplus Deal)',
+            'price': str(surplus.discounted_price),
+            'quantity': quantity,
+            'producer': surplus.product.producer.business_name,
+            'producer_postcode': surplus.product.producer.postcode,
+        }
+    request.session['cart'] = cart
+    messages.success(request, f'"{surplus.product.name}" added to cart at £{surplus.discounted_price}.')
+    return redirect('cart_view')
 
 
 def community_list(request):
@@ -441,8 +509,37 @@ def recall_detail(request, pk):
 
 @login_required
 def my_orders(request):
-    orders = Order.objects.filter(customer=request.user).prefetch_related('items__product').order_by('-created_at')
+    orders = Order.objects.filter(customer=request.user).prefetch_related('items__product__producer').order_by('-created_at')
     return render(request, 'marketplace/my_orders.html', {'orders': orders})
+
+
+@login_required
+def reorder(request, pk):
+    if request.method != 'POST':
+        return redirect('my_orders')
+    order = get_object_or_404(Order, pk=pk, customer=request.user)
+    cart = request.session.get('cart', {})
+    added = 0
+    for item in order.items.select_related('product__producer').all():
+        if item.product and item.product.is_active and item.product.stock > 0:
+            product_id = str(item.product.id)
+            if product_id in cart:
+                cart[product_id]['quantity'] += item.quantity
+            else:
+                cart[product_id] = {
+                    'name': item.product.name,
+                    'price': str(item.product.price),
+                    'quantity': item.quantity,
+                    'producer': item.product.producer.business_name,
+                    'producer_postcode': item.product.producer.postcode,
+                }
+            added += 1
+    request.session['cart'] = cart
+    if added:
+        messages.success(request, f'{added} item(s) from Order #{order.id} added to your cart.')
+    else:
+        messages.error(request, 'No items from this order are currently available.')
+    return redirect('cart_view')
 
 
 @login_required
@@ -450,10 +547,16 @@ def order_list(request):
     if request.user.role != 'producer':
         return redirect('home')
     producer = request.user.producer_profile
-    orders = Order.objects.filter(
-        items__product__producer=producer
-    ).distinct().order_by('delivery_date')
-    return render(request, 'marketplace/order_list.html', {'orders': orders})
+    status_filter = request.GET.get('status', '')
+    orders = Order.objects.filter(items__product__producer=producer).distinct()
+    if status_filter:
+        orders = orders.filter(status=status_filter)
+    orders = orders.order_by('delivery_date')
+    return render(request, 'marketplace/order_list.html', {
+        'orders': orders,
+        'status_filter': status_filter,
+        'status_choices': Order.STATUS_CHOICES,
+    })
 
 
 @login_required
@@ -470,10 +573,14 @@ def order_detail(request, pk):
         'confirmed': 'ready',
         'ready': 'delivered',
     }.get(order.status)
+    history = AuditLog.objects.filter(
+        resource_type='Order', resource_id=str(order.id)
+    ).order_by('timestamp')
     return render(request, 'marketplace/order_detail.html', {
         'order': order,
         'items': items,
         'next_status': next_status,
+        'history': history,
     })
 
 
@@ -488,12 +595,14 @@ def order_status_update(request, pk):
     if new_status:
         order.status = new_status
         order.save()
+        note = request.POST.get('note', '').strip()
         AuditLog.objects.create(
             user=request.user,
             action=f'Order #{order.id} status updated to {new_status}',
             resource_type='Order',
             resource_id=str(order.id),
             ip_address=request.META.get('REMOTE_ADDR'),
+            notes=note,
         )
         messages.success(request, f'Order #{order.id} marked as {order.get_status_display()}.')
     return redirect('order_detail', pk=pk)
