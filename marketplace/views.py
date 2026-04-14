@@ -14,7 +14,16 @@ from django.shortcuts import get_object_or_404
 
 
 def home(request):
-    return render(request, 'marketplace/home.html')
+    recent_products = Product.objects.filter(is_active=True).select_related('producer', 'category').order_by('-created_at')[:6]
+    surplus = SurplusProduce.objects.filter(
+        is_active=True, available_until__gte=timezone.now()
+    ).select_related('product', 'product__producer').order_by('available_until')[:3]
+    community_posts = CommunityPost.objects.select_related('producer').order_by('-created_at')[:3]
+    return render(request, 'marketplace/home.html', {
+        'recent_products': recent_products,
+        'surplus': surplus,
+        'community_posts': community_posts,
+    })
 
 
 def register(request):
@@ -454,6 +463,8 @@ def order_detail(request, pk):
     producer = request.user.producer_profile
     order = get_object_or_404(Order, pk=pk, items__product__producer=producer)
     items = order.items.filter(product__producer=producer).select_related('product')
+    for item in items:
+        item.subtotal = round(float(item.unit_price) * item.quantity, 2)
     next_status = {
         'pending': 'confirmed',
         'confirmed': 'ready',
