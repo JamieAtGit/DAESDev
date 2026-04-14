@@ -25,13 +25,18 @@
 
     <div style="background:white; padding:2rem; border-radius:8px; align-self:start;">
         <h3 style="margin-bottom:1rem;">Order Summary</h3>
-        {% for id, item in cart.items %}
-            <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem; font-size:0.9rem;">
+        {% regroup cart.values by producer as producer_groups %}
+        {% for group in producer_groups %}
+            <p style="font-size:0.85rem; font-weight:bold; color:#2d6a2d; margin-bottom:0.3rem;">{{ group.grouper }}</p>
+            {% for item in group.list %}
+            <div style="display:flex; justify-content:space-between; margin-bottom:0.3rem; font-size:0.9rem; padding-left:0.5rem;">
                 <span>{{ item.name }} x{{ item.quantity }}</span>
                 <span>£{{ item.subtotal }}</span>
             </div>
+            {% endfor %}
+            <div style="border-bottom:1px solid #eee; margin:0.5rem 0;"></div>
         {% endfor %}
-        <hr style="margin:1rem 0;">
+        <hr style="margin:0.5rem 0;">
         <div style="display:flex; justify-content:space-between;">
             <span>Subtotal</span><span>£{{ total }}</span>
         </div>
