@@ -11,7 +11,17 @@
 
     <table style="width:100%; margin-bottom:1.5rem;">
         <tr><td style="padding:0.4rem 0; color:#666;">Price</td><td><strong>£{{ product.price }}</strong></td></tr>
-        <tr><td style="padding:0.4rem 0; color:#666;">Stock</td><td>{{ product.stock }} available</td></tr>
+        <tr>
+            <td style="padding:0.4rem 0; color:#666;">Stock</td>
+            <td>
+                {{ product.stock }} available
+                {% if product.stock == 0 %}
+                    <span style="background:#f8d7da; color:#721c24; padding:0.15rem 0.5rem; border-radius:4px; font-size:0.82rem; margin-left:0.4rem;">Out of stock</span>
+                {% elif product.stock <= 5 %}
+                    <span style="background:#fff3cd; color:#856404; padding:0.15rem 0.5rem; border-radius:4px; font-size:0.82rem; margin-left:0.4rem;">Low stock</span>
+                {% endif %}
+            </td>
+        </tr>
         <tr><td style="padding:0.4rem 0; color:#666;">Category</td><td>{{ product.category.name|default:"Uncategorised" }}</td></tr>
         <tr><td style="padding:0.4rem 0; color:#666;">Organic</td><td>{{ product.is_organic|yesno:"Yes,No" }}</td></tr>
         {% if product.allergens %}

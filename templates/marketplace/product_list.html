@@ -46,6 +46,11 @@
             {% if product.allergens %}
                 <p style="font-size:0.8rem; color:#856404; margin-top:0.4rem;">⚠ {{ product.allergens }}</p>
             {% endif %}
+            {% if product.stock == 0 %}
+                <span style="background:#f8d7da; color:#721c24; padding:0.15rem 0.45rem; border-radius:4px; font-size:0.78rem;">Out of stock</span>
+            {% elif product.stock <= 5 %}
+                <span style="background:#fff3cd; color:#856404; padding:0.15rem 0.45rem; border-radius:4px; font-size:0.78rem;">Low stock</span>
+            {% endif %}
             <p style="font-size:1.1rem; font-weight:bold; margin:0.75rem 0;">£{{ product.price }}</p>
             <a href="/products/{{ product.id }}/" class="btn btn-green" style="width:100%; text-align:center;">View</a>
         </div>
