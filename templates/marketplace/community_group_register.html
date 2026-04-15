@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}Register as Community Group — BRFN{% endblock %}
+{% block content %}
+<div style="max-width:520px; margin:2rem auto; background:white; padding:2rem; border-radius:8px;">
+    <h2 style="margin-bottom:0.5rem;">Community Group Registration</h2>
+    <p style="color:#666; font-size:0.9rem; margin-bottom:1.5rem;">
+        For schools, care facilities, voluntary organisations, and other community groups placing catering orders.
+    </p>
+    <form method="post">
+        {% csrf_token %}
+        {% for field in form %}
+            {% if field.name != 'organisation_name' %}
+            <div style="margin-bottom:1rem;">
+                <label style="display:block; margin-bottom:0.3rem; font-size:0.9rem;">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}
+                    <p style="color:#888; font-size:0.8rem; margin-top:0.2rem;">{{ field.help_text }}</p>
+                {% endif %}
+                {% if field.errors %}
+                    <p style="color:red; font-size:0.85rem;">{{ field.errors.0 }}</p>
+                {% endif %}
+            </div>
+            {% endif %}
+        {% endfor %}
+        <button type="submit" class="btn btn-green" style="width:100%;">Register Organisation</button>
+    </form>
+    <p style="margin-top:1rem; text-align:center; font-size:0.9rem;">
+        Already have an account? <a href="/login/">Login</a>
+    </p>
+    <p style="margin-top:0.4rem; text-align:center; font-size:0.9rem;">
+        Individual customer? <a href="/register/">Register here</a>
+    </p>
+</div>
+{% endblock %}
