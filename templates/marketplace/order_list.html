@@ -1,7 +1,18 @@
 {% extends "base.html" %}
 {% block title %}Incoming Orders{% endblock %}
 {% block content %}
-<h2>Incoming Orders</h2>
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+    <h2 style="margin:0;">Incoming Orders</h2>
+    <form method="get" style="display:flex; gap:0.6rem; align-items:center;">
+        <select name="status" style="padding:0.4rem 0.6rem; border:1px solid #ccc; border-radius:4px; font-size:0.9rem;">
+            <option value="">All statuses</option>
+            {% for value, label in status_choices %}
+                <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-green">Filter</button>
+    </form>
+</div>
 
 {% if orders %}
 <table>

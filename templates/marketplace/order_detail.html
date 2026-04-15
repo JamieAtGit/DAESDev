@@ -10,6 +10,10 @@
         <p style="margin-top:0.4rem;"><strong>Delivery Address:</strong><br>{{ order.delivery_address }}</p>
         <p style="margin-top:0.4rem;"><strong>Delivery Date:</strong> {{ order.delivery_date|date:"d M Y" }}</p>
         <p style="margin-top:0.4rem;"><strong>Order Placed:</strong> {{ order.created_at|date:"d M Y H:i" }}</p>
+        {% if order.special_instructions %}
+        <p style="margin-top:0.4rem;"><strong>Special Instructions:</strong><br>
+            <span style="color:#555;">{{ order.special_instructions }}</span></p>
+        {% endif %}
     </div>
     <div style="background:white; padding:1rem; border-radius:8px;">
         <h3>Order Status</h3>
@@ -25,6 +29,11 @@
         {% if next_status %}
         <form method="post" action="{% url 'order_status_update' order.pk %}" style="margin-top:1rem;">
             {% csrf_token %}
+            <div style="margin-bottom:0.6rem;">
+                <label style="display:block; font-size:0.85rem; color:#666; margin-bottom:0.3rem;">Note (optional)</label>
+                <input type="text" name="note" placeholder="e.g. Products will be ready by delivery date"
+                    style="width:100%; padding:0.4rem 0.6rem; border:1px solid #ccc; border-radius:4px; font-size:0.85rem;">
+            </div>
             <button type="submit" class="btn btn-green">
                 {% if next_status == 'confirmed' %}Mark as Confirmed
                 {% elif next_status == 'ready' %}Mark as Ready for Delivery
@@ -57,6 +66,18 @@
         {% endfor %}
     </tbody>
 </table>
+
+{% if history %}
+<h3 style="margin-bottom:0.75rem;">Status History</h3>
+<div style="background:white; border-radius:8px; padding:1rem; margin-bottom:1.5rem;">
+    {% for entry in history %}
+    <div style="display:flex; gap:1rem; padding:0.5rem 0; border-bottom:1px solid #f0f0f0;">
+        <span style="color:#888; font-size:0.85rem; white-space:nowrap;">{{ entry.timestamp|date:"d M Y H:i" }}</span>
+        <span style="font-size:0.9rem;">{{ entry.action }}{% if entry.notes %} — <em style="color:#555;">{{ entry.notes }}</em>{% endif %}</span>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
 
 <a href="{% url 'order_list' %}" style="color:#2d6a2d;">&larr; Back to Orders</a>
 {% endblock %}
