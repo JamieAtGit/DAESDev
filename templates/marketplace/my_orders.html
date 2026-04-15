@@ -37,9 +37,13 @@
                 {% endfor %}
             </tbody>
         </table>
-        <p style="text-align:right; font-size:0.9rem; color:#555;">
-            Total: <strong>£{{ order.total_price }}</strong>
-        </p>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.5rem;">
+            <p style="font-size:0.9rem; color:#555;">Total: <strong>£{{ order.total_price }}</strong></p>
+            <form method="post" action="{% url 'reorder' order.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-green" style="font-size:0.85rem;">Reorder</button>
+            </form>
+        </div>
     </div>
     {% endfor %}
 {% else %}

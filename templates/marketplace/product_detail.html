@@ -24,9 +24,16 @@
         </tr>
         <tr><td style="padding:0.4rem 0; color:#666;">Category</td><td>{{ product.category.name|default:"Uncategorised" }}</td></tr>
         <tr><td style="padding:0.4rem 0; color:#666;">Organic</td><td>{{ product.is_organic|yesno:"Yes,No" }}</td></tr>
-        {% if product.allergens %}
-        <tr><td style="padding:0.4rem 0; color:#666;">Allergens</td><td style="color:#856404;">⚠ {{ product.allergens }}</td></tr>
-        {% endif %}
+        <tr>
+            <td style="padding:0.4rem 0; color:#666;">Allergens</td>
+            <td>
+                {% if product.allergens and product.allergens|lower != 'none' %}
+                    <span style="color:#856404; font-weight:bold;">⚠ Contains: {{ product.allergens }}</span>
+                {% else %}
+                    <span style="color:#155724;">No common allergens</span>
+                {% endif %}
+            </td>
+        </tr>
         {% if product.harvest_date %}
         <tr><td style="padding:0.4rem 0; color:#666;">Harvest Date</td><td>{{ product.harvest_date }}</td></tr>
         {% endif %}
@@ -53,10 +60,30 @@
         {% if food_miles is not None %}
         <tr>
             <td style="padding:0.4rem 0; color:#666;">Food Miles</td>
-            <td>🌿 {{ food_miles }} miles from Bristol city centre</td>
+            <td>🌿 {{ food_miles }} miles
+                {% if user.is_authenticated and user.delivery_postcode %}
+                    <span style="font-size:0.82rem; color:#888;">(from {{ user.delivery_postcode }})</span>
+                {% else %}
+                    <span style="font-size:0.82rem; color:#888;">(from Bristol city centre)</span>
+                {% endif %}
+            </td>
         </tr>
         {% endif %}
     </table>
+
+    {% if linked_posts %}
+    <div style="margin-top:1.5rem;">
+        <h3 style="margin-bottom:0.75rem;">Recipes & Farm Stories</h3>
+        {% for post in linked_posts %}
+        <div style="background:#f9f9f4; border-radius:6px; padding:0.75rem; margin-bottom:0.6rem;">
+            <span style="background:#e8f5e9; color:#2d6a2d; padding:0.15rem 0.45rem; border-radius:4px; font-size:0.78rem;">{{ post.get_post_type_display }}</span>
+            <strong style="margin-left:0.5rem; font-size:0.95rem;">{{ post.title }}</strong>
+            <p style="font-size:0.85rem; color:#555; margin-top:0.3rem;">{{ post.content|truncatewords:25 }}</p>
+        </div>
+        {% endfor %}
+        <a href="/community/" style="font-size:0.85rem; color:#2d6a2d;">See all community content &rarr;</a>
+    </div>
+    {% endif %}
 
     {% if user.is_authenticated and user.role != 'producer' %}
     <form method="post" action="/cart/add/{{ product.id }}/">
