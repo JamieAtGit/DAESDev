@@ -40,6 +40,7 @@
                 <a href="/cart/">Cart</a>
                 {% if user.role != 'producer' %}
                     <a href="/my-orders/">My Orders</a>
+                    <a href="/recurring-orders/">Recurring</a>
                 {% endif %}
                 {% if user.role == 'producer' %}
                     <a href="/dashboard/">Dashboard</a>

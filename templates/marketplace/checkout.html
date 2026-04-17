@@ -19,6 +19,30 @@
                     {% endif %}
                 </div>
             {% endfor %}
+            <div style="background:#f9f9f4; border-radius:6px; padding:1rem; margin-bottom:1rem;">
+                <h3 style="font-size:1rem; margin-bottom:0.75rem;">Recurring Order</h3>
+                <div style="margin-bottom:0.75rem; display:flex; align-items:center; gap:0.6rem;">
+                    {{ form.make_recurring }}
+                    <label style="font-size:0.9rem; margin:0;">{{ form.make_recurring.label }}</label>
+                </div>
+                <div id="recurring-fields" style="display:none;">
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+                        <div>
+                            <label style="display:block; margin-bottom:0.3rem; font-size:0.85rem;">{{ form.recurrence_day.label }}</label>
+                            {{ form.recurrence_day }}
+                        </div>
+                        <div>
+                            <label style="display:block; margin-bottom:0.3rem; font-size:0.85rem;">{{ form.delivery_day.label }}</label>
+                            {{ form.delivery_day }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <script>
+                const cb = document.querySelector('[name=make_recurring]');
+                const rf = document.getElementById('recurring-fields');
+                cb.addEventListener('change', () => rf.style.display = cb.checked ? 'block' : 'none');
+            </script>
             <button type="submit" class="btn btn-green" style="width:100%;">Place Order</button>
         </form>
     </div>
