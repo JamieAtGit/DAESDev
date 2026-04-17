@@ -171,6 +171,34 @@ class RecallNotice(models.Model):
 
 
 
+class RecurringOrder(models.Model):
+    DAY_CHOICES = [
+        ('monday', 'Monday'), ('tuesday', 'Tuesday'), ('wednesday', 'Wednesday'),
+        ('thursday', 'Thursday'), ('friday', 'Friday'), ('saturday', 'Saturday'),
+    ]
+    customer = models.ForeignKey('CustomUser', on_delete=models.CASCADE, related_name='recurring_orders')
+    delivery_address = models.TextField()
+    special_instructions = models.TextField(blank=True)
+    recurrence_day = models.CharField(max_length=20, choices=DAY_CHOICES)
+    delivery_day = models.CharField(max_length=20, choices=DAY_CHOICES)
+    is_active = models.BooleanField(default=True)
+    next_order_date = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Recurring order for {self.customer.username} every {self.recurrence_day}"
+
+
+class RecurringOrderItem(models.Model):
+    recurring_order = models.ForeignKey(RecurringOrder, on_delete=models.CASCADE, related_name='items')
+    product = models.ForeignKey('Product', on_delete=models.SET_NULL, null=True)
+    quantity = models.PositiveIntegerField()
+    unit_price = models.DecimalField(max_digits=8, decimal_places=2)
+
+    def __str__(self):
+        return f"{self.quantity} x {self.product.name}"
+
+
 class Order(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
