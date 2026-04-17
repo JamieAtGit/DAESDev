@@ -82,6 +82,26 @@ class CheckoutForm(forms.Form):
         label='Special instructions (optional)',
         help_text='e.g. Delivery to kitchen entrance, contact kitchen manager',
     )
+    make_recurring = forms.BooleanField(required=False, label='Make this a recurring weekly order')
+    recurrence_day = forms.ChoiceField(
+        choices=[('', '-- Select day --'), ('monday', 'Monday'), ('tuesday', 'Tuesday'),
+                 ('wednesday', 'Wednesday'), ('thursday', 'Thursday'), ('friday', 'Friday'), ('saturday', 'Saturday')],
+        required=False, label='Order placed every',
+    )
+    delivery_day = forms.ChoiceField(
+        choices=[('', '-- Select day --'), ('monday', 'Monday'), ('tuesday', 'Tuesday'),
+                 ('wednesday', 'Wednesday'), ('thursday', 'Thursday'), ('friday', 'Friday'), ('saturday', 'Saturday')],
+        required=False, label='Delivered every',
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if cleaned_data.get('make_recurring'):
+            if not cleaned_data.get('recurrence_day'):
+                raise forms.ValidationError('Please select the day your recurring order should be placed.')
+            if not cleaned_data.get('delivery_day'):
+                raise forms.ValidationError('Please select your preferred delivery day.')
+        return cleaned_data
 
     def clean_delivery_date(self):
         from datetime import date, timedelta

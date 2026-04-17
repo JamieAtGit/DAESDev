@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Recurring Orders{% endblock %}
+{% block content %}
+<h2>Recurring Orders</h2>
+
+{% if orders %}
+    {% for order in orders %}
+    <div style="background:white; border-radius:8px; padding:1.2rem; margin-bottom:1rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+            <h3 style="margin:0;">Recurring Order #{{ order.id }}</h3>
+            <span style="padding:0.2rem 0.6rem; border-radius:4px; font-size:0.85rem;
+                background:{% if order.is_active %}#d4edda{% else %}#e2e3e5{% endif %};
+                color:{% if order.is_active %}#155724{% else %}#383d41{% endif %};">
+                {% if order.is_active %}Active{% else %}Cancelled{% endif %}
+            </span>
+        </div>
+        <p style="font-size:0.9rem; color:#555; margin-bottom:0.4rem;">
+            <strong>Order placed:</strong> Every {{ order.get_recurrence_day_display }} &nbsp;|&nbsp;
+            <strong>Delivered:</strong> Every {{ order.get_delivery_day_display }}
+        </p>
+        <p style="font-size:0.9rem; color:#555; margin-bottom:0.75rem;">
+            <strong>Next scheduled:</strong> {{ order.next_order_date|date:"d M Y" }}
+        </p>
+        <table style="margin-bottom:0.75rem;">
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>Producer</th>
+                    <th>Qty</th>
+                    <th>Unit Price</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in order.items.all %}
+                <tr>
+                    <td>{{ item.product.name }}</td>
+                    <td>{{ item.product.producer.business_name }}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td>£{{ item.unit_price }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% if order.is_active %}
+        <div style="display:flex; gap:0.75rem;">
+            <a href="{% url 'recurring_order_edit' order.pk %}" class="btn btn-green" style="font-size:0.85rem;">Modify Next Order</a>
+            <form method="post" action="{% url 'recurring_order_cancel' order.pk %}" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-red" style="font-size:0.85rem;">Cancel Recurring Order</button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+{% else %}
+    <p style="color:#888; margin-top:1rem;">No recurring orders set up. At checkout, tick "Make this a recurring weekly order".</p>
+{% endif %}
+{% endblock %}
