@@ -6,7 +6,7 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from .forms import RegisterForm, ProducerRegistrationForm, CommunityGroupRegistrationForm, ProductForm, CheckoutForm, CommunityPostForm, RecallNoticeForm
-from .models import ProducerProfile, Product, Category, Order, OrderItem, SurplusProduce, CommunityPost, PaymentSettlement, AuditLog, RecallNotice
+from .models import ProducerProfile, Product, Category, Order, OrderItem, SurplusProduce, CommunityPost, PaymentSettlement, AuditLog, RecallNotice, RecurringOrder, RecurringOrderItem
 from .surplus_forms import SurplusProduceForm
 from .food_miles import calculate_food_miles
 from django.utils import timezone
@@ -323,6 +323,32 @@ def checkout(request):
                 ip_address=request.META.get('REMOTE_ADDR'),
             )
 
+            # create recurring order template if requested
+            if form.cleaned_data.get('make_recurring'):
+                from datetime import date, timedelta
+                day_map = {'monday': 0, 'tuesday': 1, 'wednesday': 2, 'thursday': 3, 'friday': 4, 'saturday': 5}
+                rec_day = day_map[form.cleaned_data['recurrence_day']]
+                today = date.today()
+                days_ahead = (rec_day - today.weekday()) % 7 or 7
+                next_date = today + timedelta(days=days_ahead)
+                rec_order = RecurringOrder.objects.create(
+                    customer=request.user,
+                    delivery_address=form.cleaned_data['delivery_address'],
+                    special_instructions=form.cleaned_data.get('special_instructions', ''),
+                    recurrence_day=form.cleaned_data['recurrence_day'],
+                    delivery_day=form.cleaned_data['delivery_day'],
+                    next_order_date=next_date,
+                )
+                for item in order.items.all():
+                    if item.product:
+                        RecurringOrderItem.objects.create(
+                            recurring_order=rec_order,
+                            product=item.product,
+                            quantity=item.quantity,
+                            unit_price=item.unit_price,
+                        )
+                messages.success(request, f'Recurring order set up — next order scheduled for {next_date.strftime("%d %b %Y")}.')
+
             messages.success(request, f'Order #{order.id} placed successfully!')
             return redirect('home')
     else:
@@ -505,6 +531,38 @@ def recall_detail(request, pk):
         'recall': recall,
         'affected_items': affected_items,
     })
+
+
+@login_required
+def recurring_orders(request):
+    orders = RecurringOrder.objects.filter(customer=request.user).prefetch_related('items__product').order_by('-created_at')
+    return render(request, 'marketplace/recurring_orders.html', {'orders': orders})
+
+
+@login_required
+def recurring_order_cancel(request, pk):
+    if request.method != 'POST':
+        return redirect('recurring_orders')
+    order = get_object_or_404(RecurringOrder, pk=pk, customer=request.user)
+    order.is_active = False
+    order.save(update_fields=['is_active'])
+    messages.success(request, 'Recurring order cancelled.')
+    return redirect('recurring_orders')
+
+
+@login_required
+def recurring_order_edit(request, pk):
+    order = get_object_or_404(RecurringOrder, pk=pk, customer=request.user, is_active=True)
+    items = order.items.select_related('product').all()
+    if request.method == 'POST':
+        for item in items:
+            new_qty = request.POST.get(f'qty_{item.id}')
+            if new_qty and int(new_qty) > 0:
+                item.quantity = int(new_qty)
+                item.save(update_fields=['quantity'])
+        messages.success(request, 'Next order quantities updated.')
+        return redirect('recurring_orders')
+    return render(request, 'marketplace/recurring_order_edit.html', {'order': order, 'items': items})
 
 
 @login_required

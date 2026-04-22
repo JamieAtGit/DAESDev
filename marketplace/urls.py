@@ -33,6 +33,9 @@ urlpatterns = [
     path('orders/', views.order_list, name='order_list'),
     path('my-orders/', views.my_orders, name='my_orders'),
     path('my-orders/<int:pk>/reorder/', views.reorder, name='reorder'),
+    path('recurring-orders/', views.recurring_orders, name='recurring_orders'),
+    path('recurring-orders/<int:pk>/cancel/', views.recurring_order_cancel, name='recurring_order_cancel'),
+    path('recurring-orders/<int:pk>/edit/', views.recurring_order_edit, name='recurring_order_edit'),
     path('orders/<int:pk>/', views.order_detail, name='order_detail'),
     path('orders/<int:pk>/status/', views.order_status_update, name='order_status_update'),
 ]
