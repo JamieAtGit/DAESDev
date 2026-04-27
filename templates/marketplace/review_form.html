@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% block title %}Review {{ product.name }} — BRFN{% endblock %}
+
+{% block content %}
+<div style="background:white; padding:2rem; border-radius:8px; max-width:600px;">
+    <h2 style="margin-bottom:0.25rem;">Review: {{ product.name }}</h2>
+    <p style="color:#666; margin-bottom:1.5rem; font-size:0.9rem;">
+        From Order #{{ order.id }} &mdash; {{ order.delivery_date|date:"d M Y" }}
+        <span style="background:#d4edda; color:#155724; padding:0.1rem 0.4rem; border-radius:3px; margin-left:0.4rem; font-size:0.78rem;">Verified Purchase</span>
+    </p>
+
+    <form method="post">
+        {% csrf_token %}
+
+        <div style="margin-bottom:1.25rem;">
+            <label style="display:block; margin-bottom:0.4rem; font-weight:bold;">Rating</label>
+            {% for choice in form.rating %}
+            <label style="display:inline-block; margin-right:1rem; cursor:pointer;">
+                {{ choice.tag }} {{ choice.choice_label }}
+            </label>
+            {% endfor %}
+            {% if form.rating.errors %}
+            <p style="color:red; font-size:0.85rem; margin-top:0.3rem;">{{ form.rating.errors.0 }}</p>
+            {% endif %}
+        </div>
+
+        {% for field in form %}
+            {% if field.name != 'rating' %}
+            <div style="margin-bottom:1.25rem;">
+                <label style="display:block; margin-bottom:0.3rem; font-weight:bold;">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}
+                <p style="color:red; font-size:0.85rem; margin-top:0.3rem;">{{ field.errors.0 }}</p>
+                {% endif %}
+            </div>
+            {% endif %}
+        {% endfor %}
+
+        <div style="display:flex; gap:1rem; margin-top:1rem;">
+            <button type="submit" class="btn btn-green">Submit Review</button>
+            <a href="{% url 'my_orders' %}" style="padding:0.5rem 1rem; color:#666;">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

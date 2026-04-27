@@ -24,6 +24,7 @@
                     <th>Producer</th>
                     <th>Qty</th>
                     <th>Price</th>
+                    <th></th>
                 </tr>
             </thead>
             <tbody>
@@ -33,6 +34,16 @@
                     <td>{{ item.product.producer.business_name }}</td>
                     <td>{{ item.quantity }}</td>
                     <td>£{{ item.unit_price }}</td>
+                    <td>
+                        {% if order.status == 'delivered' and item.product %}
+                            {% if item.product.id in reviewed_product_ids %}
+                                <span style="color:#888; font-size:0.8rem;">Reviewed</span>
+                            {% else %}
+                                <a href="{% url 'review_submit' order.pk item.product.pk %}"
+                                   style="font-size:0.82rem; color:#2d6a2d;">Write review</a>
+                            {% endif %}
+                        {% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>

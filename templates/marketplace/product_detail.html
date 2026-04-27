@@ -98,4 +98,35 @@
         <a href="/login/" class="btn btn-green">Login to buy</a>
     {% endif %}
 </div>
+
+<div style="background:white; padding:2rem; border-radius:8px; max-width:700px; margin-top:1.5rem;">
+    <h3 style="margin-bottom:0.5rem;">
+        Customer Reviews
+        {% if avg_rating %}
+        <span style="font-size:1rem; color:#856404; margin-left:0.5rem;">
+            &#9733; {{ avg_rating }} / 5 &nbsp;({{ reviews|length }} review{{ reviews|length|pluralize }})
+        </span>
+        {% endif %}
+    </h3>
+
+    {% if reviews %}
+        {% for review in reviews %}
+        <div style="border-top:1px solid #eee; padding:0.75rem 0;">
+            <div style="display:flex; justify-content:space-between; align-items:baseline;">
+                <strong>{{ review.title }}</strong>
+                <span style="color:#856404; font-size:0.9rem;">
+                    {% for i in "12345" %}{% if forloop.counter <= review.rating %}&#9733;{% else %}&#9734;{% endif %}{% endfor %}
+                </span>
+            </div>
+            <p style="margin:0.4rem 0; font-size:0.9rem; color:#444;">{{ review.body }}</p>
+            <p style="font-size:0.8rem; color:#888;">
+                {{ review.customer.username }} &mdash; {{ review.created_at|date:"d M Y" }}
+                <span style="background:#d4edda; color:#155724; padding:0.1rem 0.4rem; border-radius:3px; margin-left:0.4rem; font-size:0.75rem;">Verified Purchase</span>
+            </p>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p style="color:#888; font-size:0.9rem;">No reviews yet. Be the first to review this product after your order is delivered.</p>
+    {% endif %}
+</div>
 {% endblock %}
