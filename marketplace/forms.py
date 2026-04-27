@@ -1,6 +1,6 @@
 from django.contrib.auth.forms import UserCreationForm
 from django import forms
-from .models import CustomUser, Product, CommunityPost, RecallNotice
+from .models import CustomUser, Product, CommunityPost, RecallNotice, Review
 
 
 # Registration form for regular customers — captures delivery details at sign-up
@@ -153,11 +153,30 @@ class ProductForm(forms.ModelForm):
             'name', 'category', 'description', 'price', 'stock',
             'allergens', 'is_organic', 'harvest_date', 'best_before',
             'farm_origin', 'is_seasonal', 'seasonal_months',
-            'lead_time_hours', 'is_active',
+            'lead_time_hours', 'low_stock_threshold', 'is_active',
         ]
         widgets = {
             'harvest_date': forms.DateInput(attrs={'type': 'date'}),
             'best_before': forms.DateInput(attrs={'type': 'date'}),
             'description': forms.Textarea(attrs={'rows': 4}),
             'allergens': forms.Textarea(attrs={'rows': 2}),
+        }
+
+
+# Form for customers to leave a verified review on a product they have received
+class ReviewForm(forms.ModelForm):
+    rating = forms.TypedChoiceField(
+        choices=[(i, f'{"★" * i}{"☆" * (5 - i)}  ({i} star{"s" if i > 1 else ""})') for i in range(1, 6)],
+        coerce=int,
+        widget=forms.RadioSelect,
+    )
+
+    class Meta:
+        model = Review
+        fields = ['rating', 'title', 'body']
+        widgets = {
+            'body': forms.Textarea(attrs={'rows': 4}),
+        }
+        labels = {
+            'body': 'Your review',
         }

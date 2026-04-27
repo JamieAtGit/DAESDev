@@ -67,6 +67,7 @@ class Product(models.Model):
     is_seasonal = models.BooleanField(default=False)
     seasonal_months = models.CharField(max_length=200, blank=True)  # e.g. "October – February"
     lead_time_hours = models.PositiveIntegerField(default=48)  # minimum notice needed before delivery
+    low_stock_threshold = models.PositiveIntegerField(default=10)  # alert producer when stock falls to or below this; 0 = disabled
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -242,3 +243,20 @@ class OrderItem(models.Model):
 
     def __str__(self):
         return f"{self.quantity} x {self.product.name} in Order #{self.order.id}"
+
+
+# A verified product review — only customers who received the product can submit one
+class Review(models.Model):
+    customer = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='reviews')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='reviews')
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='reviews')
+    rating = models.PositiveSmallIntegerField()  # 1–5 stars
+    title = models.CharField(max_length=200)
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('customer', 'product')  # one review per customer per product
+
+    def __str__(self):
+        return f"{self.rating}★ — {self.product.name} by {self.customer.username}"

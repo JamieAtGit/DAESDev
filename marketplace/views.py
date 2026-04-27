@@ -5,8 +5,10 @@ from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from .forms import RegisterForm, ProducerRegistrationForm, CommunityGroupRegistrationForm, ProductForm, CheckoutForm, CommunityPostForm, RecallNoticeForm
-from .models import ProducerProfile, Product, Category, Order, OrderItem, SurplusProduce, CommunityPost, PaymentSettlement, AuditLog, RecallNotice, RecurringOrder, RecurringOrderItem
+from django.core.cache import cache
+from django.db.models import Avg, F
+from .forms import RegisterForm, ProducerRegistrationForm, CommunityGroupRegistrationForm, ProductForm, CheckoutForm, CommunityPostForm, RecallNoticeForm, ReviewForm
+from .models import ProducerProfile, Product, Category, Order, OrderItem, SurplusProduce, CommunityPost, PaymentSettlement, AuditLog, RecallNotice, RecurringOrder, RecurringOrderItem, Review
 from .surplus_forms import SurplusProduceForm
 from .food_miles import calculate_food_miles
 from django.utils import timezone
@@ -50,17 +52,51 @@ def login_view(request):
     if request.user.is_authenticated:
         return redirect('home')
     if request.method == 'POST':
+        ip = request.META.get('REMOTE_ADDR', 'unknown')
+        username = request.POST.get('username', '')[:50]
+        # Lock per IP + username so a lockout on one account never affects others
+        cache_key = f'login_attempts_{ip}_{username}'
+        attempts = cache.get(cache_key, 0)
+        if attempts >= 5:
+            # Brute-force lockout: 5 failed attempts within 15 minutes blocks further tries
+            messages.error(request, 'Too many failed login attempts. Please try again in 15 minutes.')
+            return render(request, 'marketplace/login.html', {'form': AuthenticationForm()})
         form = AuthenticationForm(request, data=request.POST)
         if form.is_valid():
             user = form.get_user()
             login(request, user)
+            cache.delete(cache_key)
+            AuditLog.objects.create(
+                user=user,
+                action='User logged in',
+                resource_type='CustomUser',
+                resource_id=str(user.id),
+                ip_address=ip,
+            )
             return redirect('home')
+        else:
+            cache.set(cache_key, attempts + 1, timeout=900)
+            AuditLog.objects.create(
+                user=None,
+                action=f'Failed login attempt for username: {username}',
+                resource_type='CustomUser',
+                resource_id='',
+                ip_address=ip,
+            )
     else:
         form = AuthenticationForm()
     return render(request, 'marketplace/login.html', {'form': form})
 
 
 def logout_view(request):
+    if request.user.is_authenticated:
+        AuditLog.objects.create(
+            user=request.user,
+            action='User logged out',
+            resource_type='CustomUser',
+            resource_id=str(request.user.id),
+            ip_address=request.META.get('REMOTE_ADDR'),
+        )
     logout(request)
     return redirect('home')
 
@@ -117,7 +153,13 @@ def dashboard(request):
         return redirect('home')
     profile, _ = ProducerProfile.objects.get_or_create(user=request.user)
     products = Product.objects.filter(producer=profile).order_by('-created_at')
-    return render(request, 'marketplace/dashboard.html', {'products': products, 'profile': profile})
+    # Surface any products whose stock has fallen to or below the producer's set threshold
+    low_stock_products = products.filter(low_stock_threshold__gt=0, stock__lte=F('low_stock_threshold'))
+    return render(request, 'marketplace/dashboard.html', {
+        'products': products,
+        'profile': profile,
+        'low_stock_products': low_stock_products,
+    })
 
 
 @login_required
@@ -212,10 +254,16 @@ def product_detail(request, pk):
         )
         food_miles = calculate_food_miles(customer_postcode, product.producer.postcode)
     linked_posts = product.community_posts.select_related('producer').order_by('-created_at')[:3]
+    reviews = product.reviews.select_related('customer').order_by('-created_at')
+    avg_rating = reviews.aggregate(avg=Avg('rating'))['avg']
+    user_review = reviews.filter(customer=request.user).first() if request.user.is_authenticated else None
     return render(request, 'marketplace/product_detail.html', {
         'product': product,
         'food_miles': food_miles,
         'linked_posts': linked_posts,
+        'reviews': reviews,
+        'avg_rating': round(avg_rating, 1) if avg_rating else None,
+        'user_review': user_review,
     })
 
 
@@ -615,7 +663,13 @@ def recurring_order_edit(request, pk):
 @login_required
 def my_orders(request):
     orders = Order.objects.filter(customer=request.user).prefetch_related('items__product__producer').order_by('-created_at')
-    return render(request, 'marketplace/my_orders.html', {'orders': orders})
+    reviewed_product_ids = set(
+        Review.objects.filter(customer=request.user).values_list('product_id', flat=True)
+    )
+    return render(request, 'marketplace/my_orders.html', {
+        'orders': orders,
+        'reviewed_product_ids': reviewed_product_ids,
+    })
 
 
 @login_required
@@ -727,3 +781,90 @@ def cart_update(request, pk):
             del cart[product_id]
     request.session['cart'] = cart
     return redirect('cart_view')
+
+
+# ── Product reviews ──────────────────────────────────────────────────────────
+
+@login_required
+def review_submit(request, order_pk, product_pk):
+    order = get_object_or_404(Order, pk=order_pk, customer=request.user, status='delivered')
+    product = get_object_or_404(Product, pk=product_pk)
+    if not order.items.filter(product=product).exists():
+        messages.error(request, 'You can only review products from your own delivered orders.')
+        return redirect('my_orders')
+    if Review.objects.filter(customer=request.user, product=product).exists():
+        messages.error(request, 'You have already reviewed this product.')
+        return redirect('my_orders')
+    if request.method == 'POST':
+        form = ReviewForm(request.POST)
+        if form.is_valid():
+            review = form.save(commit=False)
+            review.customer = request.user
+            review.product = product
+            review.order = order
+            review.save()
+            messages.success(request, 'Review submitted. Thank you!')
+            return redirect('product_detail', pk=product.id)
+    else:
+        form = ReviewForm()
+    return render(request, 'marketplace/review_form.html', {
+        'form': form,
+        'product': product,
+        'order': order,
+    })
+
+
+# ── Admin financial report ───────────────────────────────────────────────────
+
+@login_required
+def admin_report(request):
+    if not request.user.is_staff:
+        return redirect('home')
+    from datetime import date, timedelta
+    date_from_str = request.GET.get('date_from', '')
+    date_to_str = request.GET.get('date_to', '')
+    try:
+        date_from = date.fromisoformat(date_from_str)
+    except ValueError:
+        date_from = date.today() - timedelta(weeks=2)
+    try:
+        date_to = date.fromisoformat(date_to_str)
+    except ValueError:
+        date_to = date.today()
+
+    settlements = PaymentSettlement.objects.filter(
+        week_ending__gte=date_from,
+        week_ending__lte=date_to,
+    ).select_related('producer', 'order').order_by('week_ending', 'producer__business_name')
+
+    total_gross = round(sum(float(s.gross_amount) for s in settlements), 2)
+    total_commission = round(sum(float(s.commission_deducted) for s in settlements), 2)
+    total_net = round(sum(float(s.net_amount) for s in settlements), 2)
+    order_count = settlements.values('order_id').distinct().count()
+
+    ytd_start = date(date.today().year, 1, 1)
+    ytd_commission = round(
+        sum(float(s.commission_deducted) for s in PaymentSettlement.objects.filter(week_ending__gte=ytd_start)),
+        2,
+    )
+
+    if 'export' in request.GET:
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="commission_{date_from}_{date_to}.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['Order #', 'Producer', 'Week Ending', 'Gross (£)', 'Commission (£)', 'Net Payout (£)', 'Status'])
+        for s in settlements:
+            writer.writerow([s.order_id, s.producer.business_name, s.week_ending,
+                             s.gross_amount, s.commission_deducted, s.net_amount, s.get_status_display()])
+        return response
+
+    return render(request, 'marketplace/admin_report.html', {
+        'settlements': settlements,
+        'total_gross': total_gross,
+        'total_commission': total_commission,
+        'total_net': total_net,
+        'order_count': order_count,
+        'ytd_commission': ytd_commission,
+        'date_from': date_from,
+        'date_to': date_to,
+    })

@@ -38,4 +38,6 @@ urlpatterns = [
     path('recurring-orders/<int:pk>/edit/', views.recurring_order_edit, name='recurring_order_edit'),
     path('orders/<int:pk>/', views.order_detail, name='order_detail'),
     path('orders/<int:pk>/status/', views.order_status_update, name='order_status_update'),
+    path('orders/<int:order_pk>/review/<int:product_pk>/', views.review_submit, name='review_submit'),
+    path('admin/report/', views.admin_report, name='admin_report'),
 ]

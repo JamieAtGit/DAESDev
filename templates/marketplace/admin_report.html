@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+
+{% block title %}Commission Report — BRFN Admin{% endblock %}
+
+{% block content %}
+<h2>Network Commission Report</h2>
+
+<form method="get" style="background:white; padding:1rem; border-radius:8px; margin-bottom:1.5rem; display:flex; gap:1rem; align-items:flex-end; flex-wrap:wrap;">
+    <div>
+        <label style="display:block; font-size:0.85rem; margin-bottom:0.25rem;">From</label>
+        <input type="date" name="date_from" value="{{ date_from|date:'Y-m-d' }}"
+               style="padding:0.4rem; border:1px solid #ccc; border-radius:4px;">
+    </div>
+    <div>
+        <label style="display:block; font-size:0.85rem; margin-bottom:0.25rem;">To</label>
+        <input type="date" name="date_to" value="{{ date_to|date:'Y-m-d' }}"
+               style="padding:0.4rem; border:1px solid #ccc; border-radius:4px;">
+    </div>
+    <button type="submit" class="btn btn-green">Generate Report</button>
+    <a href="?date_from={{ date_from|date:'Y-m-d' }}&date_to={{ date_to|date:'Y-m-d' }}&export=1"
+       class="btn" style="background:#e8f5e9; color:#2d6a2d; border:1px solid #a5d6a7;">Export CSV</a>
+</form>
+
+<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:1rem; margin-bottom:1.5rem;">
+    <div style="background:white; border-radius:8px; padding:1rem; text-align:center;">
+        <div style="font-size:0.8rem; color:#888; margin-bottom:0.25rem;">Orders in period</div>
+        <div style="font-size:1.6rem; font-weight:bold;">{{ order_count }}</div>
+    </div>
+    <div style="background:white; border-radius:8px; padding:1rem; text-align:center;">
+        <div style="font-size:0.8rem; color:#888; margin-bottom:0.25rem;">Total Order Value</div>
+        <div style="font-size:1.6rem; font-weight:bold;">£{{ total_gross }}</div>
+    </div>
+    <div style="background:#fff3cd; border-radius:8px; padding:1rem; text-align:center;">
+        <div style="font-size:0.8rem; color:#856404; margin-bottom:0.25rem;">Network Commission (5%)</div>
+        <div style="font-size:1.6rem; font-weight:bold; color:#856404;">£{{ total_commission }}</div>
+    </div>
+    <div style="background:#d4edda; border-radius:8px; padding:1rem; text-align:center;">
+        <div style="font-size:0.8rem; color:#155724; margin-bottom:0.25rem;">Producer Payouts (95%)</div>
+        <div style="font-size:1.6rem; font-weight:bold; color:#155724;">£{{ total_net }}</div>
+    </div>
+    <div style="background:white; border-radius:8px; padding:1rem; text-align:center; border:2px dashed #ccc;">
+        <div style="font-size:0.8rem; color:#888; margin-bottom:0.25rem;">Year-to-Date Commission</div>
+        <div style="font-size:1.6rem; font-weight:bold;">£{{ ytd_commission }}</div>
+    </div>
+</div>
+
+{% if settlements %}
+<div style="background:white; border-radius:8px; overflow:hidden;">
+    <table style="width:100%; border-collapse:collapse;">
+        <thead style="background:#2d6a2d; color:white;">
+            <tr>
+                <th style="padding:0.75rem; text-align:left;">Order #</th>
+                <th style="padding:0.75rem; text-align:left;">Producer</th>
+                <th style="padding:0.75rem;">Week Ending</th>
+                <th style="padding:0.75rem;">Gross (£)</th>
+                <th style="padding:0.75rem;">Commission (£)</th>
+                <th style="padding:0.75rem;">Net Payout (£)</th>
+                <th style="padding:0.75rem;">Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in settlements %}
+            <tr style="border-bottom:1px solid #eee;">
+                <td style="padding:0.65rem;">{{ s.order_id }}</td>
+                <td style="padding:0.65rem;">{{ s.producer.business_name }}</td>
+                <td style="padding:0.65rem; text-align:center;">{{ s.week_ending|date:"d M Y" }}</td>
+                <td style="padding:0.65rem; text-align:center;">£{{ s.gross_amount }}</td>
+                <td style="padding:0.65rem; text-align:center; color:#856404;">£{{ s.commission_deducted }}</td>
+                <td style="padding:0.65rem; text-align:center; color:#155724;">£{{ s.net_amount }}</td>
+                <td style="padding:0.65rem; text-align:center;">
+                    <span style="background:{% if s.status == 'paid' %}#d4edda; color:#155724{% else %}#fff3cd; color:#856404{% endif %}; padding:0.15rem 0.5rem; border-radius:4px; font-size:0.82rem;">
+                        {{ s.get_status_display }}
+                    </span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot style="background:#f9f9f4; font-weight:bold;">
+            <tr>
+                <td colspan="3" style="padding:0.75rem;">Totals for period</td>
+                <td style="padding:0.75rem; text-align:center;">£{{ total_gross }}</td>
+                <td style="padding:0.75rem; text-align:center; color:#856404;">£{{ total_commission }}</td>
+                <td style="padding:0.75rem; text-align:center; color:#155724;">£{{ total_net }}</td>
+                <td></td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+{% else %}
+<p style="color:#888; background:white; padding:1.5rem; border-radius:8px;">No settlements found for the selected date range.</p>
+{% endif %}
+{% endblock %}
