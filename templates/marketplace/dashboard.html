@@ -3,6 +3,22 @@
 {% block title %}Producer Dashboard — BRFN{% endblock %}
 
 {% block content %}
+
+{% if low_stock_products %}
+<div style="background:#fff3cd; border:1px solid #ffc107; border-radius:8px; padding:1rem; margin-bottom:1.5rem;">
+    <strong style="color:#856404;">&#9888; Low Stock Alerts</strong>
+    <ul style="margin:0.5rem 0 0 1.2rem; padding:0; color:#856404;">
+        {% for product in low_stock_products %}
+        <li>
+            <strong>{{ product.name }}</strong> — only {{ product.stock }} remaining
+            (threshold: {{ product.low_stock_threshold }})
+            &nbsp;<a href="/dashboard/products/{{ product.id }}/edit/" style="color:#856404; font-size:0.85rem;">Update stock</a>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
     <h2>My Products — {{ profile.business_name }}</h2>
     <a href="/dashboard/products/new/" class="btn btn-green">+ Add Product</a>
@@ -15,16 +31,25 @@
                 <th style="padding:0.75rem; text-align:left;">Name</th>
                 <th style="padding:0.75rem;">Price</th>
                 <th style="padding:0.75rem;">Stock</th>
+                <th style="padding:0.75rem;">Alert&nbsp;At</th>
                 <th style="padding:0.75rem;">Active</th>
                 <th style="padding:0.75rem;">Actions</th>
             </tr>
         </thead>
         <tbody>
             {% for product in products %}
-            <tr style="border-bottom:1px solid #eee;">
+            <tr style="border-bottom:1px solid #eee; {% if product in low_stock_products %}background:#fffde7;{% endif %}">
                 <td style="padding:0.75rem;">{{ product.name }}</td>
                 <td style="padding:0.75rem; text-align:center;">£{{ product.price }}</td>
-                <td style="padding:0.75rem; text-align:center;">{{ product.stock }}</td>
+                <td style="padding:0.75rem; text-align:center;">
+                    {{ product.stock }}
+                    {% if product in low_stock_products %}
+                    <span style="color:#856404; font-size:0.8rem;">&#9888;</span>
+                    {% endif %}
+                </td>
+                <td style="padding:0.75rem; text-align:center; color:#888;">
+                    {% if product.low_stock_threshold %}{{ product.low_stock_threshold }}{% else %}—{% endif %}
+                </td>
                 <td style="padding:0.75rem; text-align:center;">{{ product.is_active|yesno:"Yes,No" }}</td>
                 <td style="padding:0.75rem; text-align:center;">
                     <a href="/dashboard/products/{{ product.id }}/edit/">Edit</a> |
