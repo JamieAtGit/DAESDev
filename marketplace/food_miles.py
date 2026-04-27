@@ -80,3 +80,5 @@ def calculate_food_miles(postcode_from, postcode_to):
     if not coords_from or not coords_to:
         return None
     return _haversine(coords_from[0], coords_from[1], coords_to[0], coords_to[1])
+
+
