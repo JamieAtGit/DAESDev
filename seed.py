@@ -29,9 +29,12 @@ Product.objects.create(producer=p1, category=dairy,  name='Free Range Eggs',    
 Product.objects.create(producer=p1, category=bakery, name='Sourdough Loaf',      description='Stone baked sourdough, 800g.',                         price=4.00, stock=20,  allergens='Gluten, Wheat', is_organic=False, farm_origin="John's Farm, Nailsea",    lead_time_hours=24)
 
 # Community posts for p1
+carrots = Product.objects.get(producer=p1, name='Organic Carrots')
+leeks   = Product.objects.get(producer=p1, name='Organic Leeks')
 CommunityPost.objects.create(producer=p1, post_type='story',   title='How we started farming organically', content='Back in 2003 we made the decision to convert our land to organic production. It took three years to gain certification but the results speak for themselves — better soil, healthier animals, and customers who keep coming back.')
-CommunityPost.objects.create(producer=p1, post_type='recipe',  title='Roasted Carrot and Leek Soup',       content='Roast 500g carrots and 2 leeks with olive oil at 200°C for 25 minutes. Blend with 1 litre of vegetable stock, season well. Serve with a slice of our sourdough. Simple, seasonal, and warming.')
-CommunityPost.objects.create(producer=p1, post_type='storage', title='Storing root vegetables',            content='Keep carrots and potatoes in a cool, dark place — ideally a paper bag in a larder. Avoid the fridge for potatoes as the cold converts starch to sugar. Properly stored they will last 2–3 weeks.')
+CommunityPost.objects.create(producer=p1, post_type='recipe',  title='Roasted Carrot and Leek Soup',       product=carrots, content='Roast 500g carrots and 2 leeks with olive oil at 200°C for 25 minutes. Blend with 1 litre of vegetable stock, season well. Serve with a slice of our sourdough. Simple, seasonal, and warming.')
+CommunityPost.objects.create(producer=p1, post_type='storage', title='Storing root vegetables',            product=carrots, content='Keep carrots and potatoes in a cool, dark place — ideally a paper bag in a larder. Avoid the fridge for potatoes as the cold converts starch to sugar. Properly stored they will last 2–3 weeks.')
+CommunityPost.objects.create(producer=p1, post_type='recipe',  title='Leek and Potato Soup',               product=leeks,   content='Sweat 3 sliced leeks in butter for 10 minutes. Add 3 diced potatoes and 1 litre of stock. Simmer 20 minutes, blend until smooth, season with white pepper and a swirl of cream.')
 
 # ── Producer 2 — Hillside Dairy (BS40) ──────────────────────────────────────
 u2 = CustomUser.objects.create_user(
@@ -60,8 +63,9 @@ SurplusProduce.objects.create(
 )
 
 # Community posts for p2
+butter = Product.objects.get(producer=p2, name='Salted Butter (250g)')
 CommunityPost.objects.create(producer=p2, post_type='story',  title='Life on a Chew Valley dairy farm',   content='We milk 120 Friesian cows twice a day, starting at 5am. The Chew Valley landscape provides rich grazing from April through October which gives our milk its distinctive flavour. We supply Bristol within 24 hours of milking.')
-CommunityPost.objects.create(producer=p2, post_type='recipe', title='Simple white sauce with Hillside butter', content='Melt 25g of our salted butter in a pan, stir in 25g plain flour, then gradually whisk in 300ml of our whole milk over a low heat until thick and smooth. Season with nutmeg. Works with pasta, cauliflower cheese, or lasagne.')
+CommunityPost.objects.create(producer=p2, post_type='recipe', title='Simple white sauce with Hillside butter', product=butter, content='Melt 25g of our salted butter in a pan, stir in 25g plain flour, then gradually whisk in 300ml of our whole milk over a low heat until thick and smooth. Season with nutmeg. Works with pasta, cauliflower cheese, or lasagne.')
 
 # ── Producer 3 — Bristol Valley Bakehouse (BS5) ──────────────────────────────
 u3 = CustomUser.objects.create_user(

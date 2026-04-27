@@ -3,6 +3,7 @@ from django import forms
 from .models import CustomUser, Product, CommunityPost, RecallNotice
 
 
+# Registration form for regular customers — captures delivery details at sign-up
 class RegisterForm(UserCreationForm):
     email = forms.EmailField(required=True)
     phone = forms.CharField(max_length=20, required=False, label='Phone number')
@@ -14,12 +15,14 @@ class RegisterForm(UserCreationForm):
         fields = ['username', 'email', 'phone', 'delivery_address', 'delivery_postcode', 'password1', 'password2']
 
     def clean_email(self):
+        # Prevent two accounts sharing the same email address
         email = self.cleaned_data.get('email')
         if CustomUser.objects.filter(email=email).exists():
             raise forms.ValidationError('An account with this email already exists.')
         return email
 
     def save(self, commit=True):
+        # Set the role to 'customer' before saving the new user
         user = super().save(commit=False)
         user.role = 'customer'
         user.phone = self.cleaned_data.get('phone', '')
@@ -30,6 +33,7 @@ class RegisterForm(UserCreationForm):
         return user
 
 
+# Registration form for producers — includes extra fields for their business profile
 class ProducerRegistrationForm(UserCreationForm):
     email = forms.EmailField(required=True)
     phone = forms.CharField(max_length=20, required=False, label='Phone number')
@@ -46,12 +50,14 @@ class ProducerRegistrationForm(UserCreationForm):
         fields = ['username', 'email', 'phone', 'password1', 'password2']
 
     def clean_email(self):
+        # Prevent two accounts sharing the same email address
         email = self.cleaned_data.get('email')
         if CustomUser.objects.filter(email=email).exists():
             raise forms.ValidationError('An account with this email already exists.')
         return email
 
 
+# Registration form for community groups (e.g. schools, food banks) — similar to customer but captures organisation name
 class CommunityGroupRegistrationForm(UserCreationForm):
     email = forms.EmailField(required=True)
     phone = forms.CharField(max_length=20, required=False, label='Phone number')
@@ -64,12 +70,14 @@ class CommunityGroupRegistrationForm(UserCreationForm):
         fields = ['username', 'email', 'phone', 'organisation_name', 'delivery_address', 'delivery_postcode', 'password1', 'password2']
 
     def clean_email(self):
+        # Prevent two accounts sharing the same email address
         email = self.cleaned_data.get('email')
         if CustomUser.objects.filter(email=email).exists():
             raise forms.ValidationError('An account with this email already exists.')
         return email
 
 
+# Form shown at checkout — collects delivery details and optional recurring order preferences
 class CheckoutForm(forms.Form):
     full_name = forms.CharField(max_length=200)
     email = forms.EmailField()
@@ -82,6 +90,7 @@ class CheckoutForm(forms.Form):
         label='Special instructions (optional)',
         help_text='e.g. Delivery to kitchen entrance, contact kitchen manager',
     )
+    # Recurring order fields — only required if the customer ticks the checkbox
     make_recurring = forms.BooleanField(required=False, label='Make this a recurring weekly order')
     recurrence_day = forms.ChoiceField(
         choices=[('', '-- Select day --'), ('monday', 'Monday'), ('tuesday', 'Tuesday'),
@@ -95,6 +104,7 @@ class CheckoutForm(forms.Form):
     )
 
     def clean(self):
+        # If recurring is ticked, both day fields must also be filled in
         cleaned_data = super().clean()
         if cleaned_data.get('make_recurring'):
             if not cleaned_data.get('recurrence_day'):
@@ -104,6 +114,7 @@ class CheckoutForm(forms.Form):
         return cleaned_data
 
     def clean_delivery_date(self):
+        # Enforce the minimum 48-hour lead time required by producers
         from datetime import date, timedelta
         delivery_date = self.cleaned_data.get('delivery_date')
         min_date = date.today() + timedelta(hours=48)
@@ -112,6 +123,7 @@ class CheckoutForm(forms.Form):
         return delivery_date
 
 
+# Form for producers to write and share a community post (story, recipe, or storage tip)
 class CommunityPostForm(forms.ModelForm):
     class Meta:
         model = CommunityPost
@@ -121,6 +133,7 @@ class CommunityPostForm(forms.ModelForm):
         }
 
 
+# Form for producers to issue a food safety recall notice for one of their products
 class RecallNoticeForm(forms.ModelForm):
     class Meta:
         model = RecallNotice
@@ -132,6 +145,7 @@ class RecallNoticeForm(forms.ModelForm):
         }
 
 
+# Form for producers to create or edit a product listing
 class ProductForm(forms.ModelForm):
     class Meta:
         model = Product

@@ -6,6 +6,7 @@ from .models import Category, Product, Order, SurplusProduce, CommunityPost
 from .serializers import CategorySerializer, ProductSerializer, OrderSerializer, SurplusProduceSerializer, CommunityPostSerializer
 
 
+# Anyone can read; only authenticated producers can write — and only their own objects
 class IsProducerOrReadOnly(permissions.BasePermission):
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
@@ -15,6 +16,7 @@ class IsProducerOrReadOnly(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         if request.method in permissions.SAFE_METHODS:
             return True
+        # Prevents a producer from modifying another producer's products
         return obj.producer == request.user.producer_profile
 
 
@@ -47,6 +49,7 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def my(self, request):
+        # /api/products/my/ — returns only the logged-in producer's own listings (including inactive ones)
         if request.user.role != 'producer':
             return Response({'detail': 'Producer account required.'}, status=403)
         products = Product.objects.filter(producer=request.user.producer_profile).order_by('-created_at')

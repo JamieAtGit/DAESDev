@@ -5,6 +5,7 @@ from .models import CustomUser, ProducerProfile, Category, Product, Order, Order
 
 @admin.register(CustomUser)
 class CustomUserAdmin(UserAdmin):
+    # Extend the default UserAdmin fieldsets to expose the role field
     fieldsets = UserAdmin.fieldsets + (
         ('Role', {'fields': ('role',)}),
     )
@@ -51,6 +52,7 @@ class PaymentSettlementAdmin(admin.ModelAdmin):
 @admin.register(AuditLog)
 class AuditLogAdmin(admin.ModelAdmin):
     list_display = ['timestamp', 'user', 'action', 'resource_type', 'resource_id']
+    # All fields are read-only — the audit log must never be edited through the admin
     readonly_fields = ['timestamp', 'user', 'action', 'resource_type', 'resource_id', 'ip_address', 'notes']
 
 

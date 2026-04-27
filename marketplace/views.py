@@ -13,7 +13,10 @@ from django.utils import timezone
 from django.shortcuts import get_object_or_404
 
 
+# ── Homepage ─────────────────────────────────────────────────────────────────
+
 def home(request):
+    # Pull a small selection of recent products, surplus deals, and community posts for the landing page
     recent_products = Product.objects.filter(is_active=True).select_related('producer', 'category').order_by('-created_at')[:6]
     surplus = SurplusProduce.objects.filter(
         is_active=True, available_until__gte=timezone.now()
@@ -26,7 +29,10 @@ def home(request):
     })
 
 
+# ── Authentication ───────────────────────────────────────────────────────────
+
 def register(request):
+    # Redirect logged-in users away — they don't need to register again
     if request.user.is_authenticated:
         return redirect('home')
     if request.method == 'POST':
@@ -88,6 +94,7 @@ def register_producer(request):
             user.role = 'producer'
             user.phone = form.cleaned_data.get('phone', '')
             user.save()
+            # Create the linked ProducerProfile with the business details from the form
             ProducerProfile.objects.create(
                 user=user,
                 business_name=form.cleaned_data['business_name'],
@@ -101,6 +108,8 @@ def register_producer(request):
         form = ProducerRegistrationForm()
     return render(request, 'marketplace/producer_register.html', {'form': form})
 
+
+# ── Producer dashboard & product management ──────────────────────────────────
 
 @login_required
 def dashboard(request):
@@ -119,6 +128,7 @@ def product_create(request):
         form = ProductForm(request.POST)
         if form.is_valid():
             product = form.save(commit=False)
+            # Attach the product to the currently logged-in producer before saving
             product.producer = request.user.producer_profile
             product.save()
             messages.success(request, f'Product "{product.name}" created.')
@@ -157,7 +167,10 @@ def product_delete(request, pk):
     return render(request, 'marketplace/product_confirm_delete.html', {'product': product})
 
 
+# ── Product browsing ─────────────────────────────────────────────────────────
+
 def product_list(request):
+    # Start with all active products, then narrow down based on any filters the user has applied
     products = Product.objects.filter(is_active=True).select_related('producer', 'category')
     search = request.GET.get('search', '')
     category = request.GET.get('category', '')
@@ -165,12 +178,14 @@ def product_list(request):
     allergen = request.GET.get('allergen', '')
 
     if search:
+        # Search across both product name and description
         products = products.filter(name__icontains=search) | products.filter(description__icontains=search)
     if category:
         products = products.filter(category__slug=category)
     if organic:
         products = products.filter(is_organic=True)
     if allergen == 'none':
+        # 'none' means the customer wants products with no allergens listed at all
         products = products.filter(allergens='') | products.filter(allergens__iexact='none')
     elif allergen:
         products = products.filter(allergens__icontains=allergen)
@@ -189,6 +204,7 @@ def product_detail(request, pk):
     product = get_object_or_404(Product, pk=pk, is_active=True)
     food_miles = None
     if product.producer.postcode:
+        # Use the customer's saved postcode if logged in, otherwise fall back to central Bristol
         customer_postcode = (
             request.user.delivery_postcode
             if request.user.is_authenticated and request.user.delivery_postcode
@@ -203,6 +219,8 @@ def product_detail(request, pk):
     })
 
 
+# ── Cart (stored in the session, not the database) ───────────────────────────
+
 @login_required
 def cart_add(request, pk):
     if request.method != 'POST':
@@ -212,6 +230,7 @@ def cart_add(request, pk):
     quantity = int(request.POST.get('quantity', 1))
     product_id = str(pk)
     if product_id in cart:
+        # Product already in cart — just increase the quantity
         cart[product_id]['quantity'] += quantity
     else:
         cart[product_id] = {
@@ -231,6 +250,7 @@ def cart_view(request):
     cart = request.session.get('cart', {})
     for item in cart.values():
         item['subtotal'] = round(float(item['price']) * item['quantity'], 2)
+        # Calculate food miles from the producer's farm to central Bristol for each item
         postcode = item.get('producer_postcode', '')
         if postcode:
             fm = calculate_food_miles('BS11AA', postcode)
@@ -238,6 +258,7 @@ def cart_view(request):
         else:
             item['food_miles'] = None
     total = round(sum(item['subtotal'] for item in cart.values()), 2)
+    # Sum food miles only for items where a distance could be calculated
     food_miles_values = [item['food_miles'] for item in cart.values() if item['food_miles'] is not None]
     total_food_miles = round(sum(food_miles_values), 1) if food_miles_values else None
     return render(request, 'marketplace/cart.html', {
@@ -257,6 +278,8 @@ def cart_remove(request, pk):
     return redirect('cart_view')
 
 
+# ── Checkout ─────────────────────────────────────────────────────────────────
+
 @login_required
 def checkout(request):
     cart = request.session.get('cart', {})
@@ -267,12 +290,13 @@ def checkout(request):
         item['subtotal'] = round(float(item['price']) * item['quantity'], 2)
 
     total = round(sum(item['subtotal'] for item in cart.values()), 2)
-    commission = round(total * 0.05, 2)
+    commission = round(total * 0.05, 2)   # platform takes 5% of every order
     grand_total = round(total + commission, 2)
 
     if request.method == 'POST':
         form = CheckoutForm(request.POST)
         if form.is_valid():
+            # Save the order record
             order = Order.objects.create(
                 customer=request.user,
                 delivery_address=form.cleaned_data['delivery_address'],
@@ -281,6 +305,7 @@ def checkout(request):
                 total_price=grand_total,
                 commission_amount=commission,
             )
+            # Create an OrderItem for each product and reduce stock accordingly
             for product_id, item in cart.items():
                 product = get_object_or_404(Product, pk=int(product_id))
                 OrderItem.objects.create(
@@ -293,8 +318,9 @@ def checkout(request):
                 product.save(update_fields=['stock'])
             del request.session['cart']
 
-            # create per-producer settlement records
+            # Create a PaymentSettlement for each producer involved in this order
             from datetime import date, timedelta
+            # Week ending is always the coming Saturday
             week_ending = date.today() + timedelta(days=(6 - date.today().weekday()))
             producers_in_order = set()
             for item in order.items.all():
@@ -303,18 +329,18 @@ def checkout(request):
             for producer in producers_in_order:
                 producer_items = order.items.filter(product__producer=producer)
                 gross = sum(float(i.unit_price) * i.quantity for i in producer_items)
-                commission = round(gross * 0.05, 2)
-                net = round(gross - commission, 2)
+                producer_commission = round(gross * 0.05, 2)
+                net = round(gross - producer_commission, 2)
                 PaymentSettlement.objects.create(
                     producer=producer,
                     order=order,
                     gross_amount=gross,
-                    commission_deducted=commission,
+                    commission_deducted=producer_commission,
                     net_amount=net,
                     week_ending=week_ending,
                 )
 
-            # audit log
+            # Write an audit log entry so admins can trace when this order was placed
             AuditLog.objects.create(
                 user=request.user,
                 action=f'Order #{order.id} placed',
@@ -323,12 +349,12 @@ def checkout(request):
                 ip_address=request.META.get('REMOTE_ADDR'),
             )
 
-            # create recurring order template if requested
+            # If the customer opted in, save a recurring order template based on this order
             if form.cleaned_data.get('make_recurring'):
-                from datetime import date, timedelta
                 day_map = {'monday': 0, 'tuesday': 1, 'wednesday': 2, 'thursday': 3, 'friday': 4, 'saturday': 5}
                 rec_day = day_map[form.cleaned_data['recurrence_day']]
                 today = date.today()
+                # Find the next occurrence of the chosen day (always at least 7 days away)
                 days_ahead = (rec_day - today.weekday()) % 7 or 7
                 next_date = today + timedelta(days=days_ahead)
                 rec_order = RecurringOrder.objects.create(
@@ -339,6 +365,7 @@ def checkout(request):
                     delivery_day=form.cleaned_data['delivery_day'],
                     next_order_date=next_date,
                 )
+                # Copy each item from the one-off order into the recurring template
                 for item in order.items.all():
                     if item.product:
                         RecurringOrderItem.objects.create(
@@ -352,6 +379,7 @@ def checkout(request):
             messages.success(request, f'Order #{order.id} placed successfully!')
             return redirect('home')
     else:
+        # Pre-fill delivery address from the user's saved profile
         initial = {}
         if request.user.delivery_address:
             initial['delivery_address'] = request.user.delivery_address
@@ -366,7 +394,10 @@ def checkout(request):
     })
 
 
+# ── Surplus produce ──────────────────────────────────────────────────────────
+
 def surplus_list(request):
+    # Only show listings that are still active and haven't passed their available_until time
     listings = SurplusProduce.objects.filter(
         is_active=True,
         available_until__gte=timezone.now()
@@ -387,6 +418,7 @@ def surplus_add(request):
             return redirect('surplus_list')
     else:
         form = SurplusProduceForm()
+        # Limit the product dropdown to only this producer's own active products
         form.fields['product'].queryset = Product.objects.filter(
             producer=request.user.producer_profile, is_active=True
         )
@@ -398,6 +430,7 @@ def surplus_remove(request, pk):
     if request.method != 'POST' or request.user.role != 'producer':
         return redirect('surplus_list')
     surplus = get_object_or_404(SurplusProduce, pk=pk, product__producer=request.user.producer_profile)
+    # Soft-delete: mark as inactive rather than deleting the record
     surplus.is_active = False
     surplus.save(update_fields=['is_active'])
     messages.success(request, 'Surplus listing removed.')
@@ -418,6 +451,7 @@ def surplus_cart_add(request, pk):
     if product_id in cart:
         cart[product_id]['quantity'] += quantity
     else:
+        # Store the discounted price so it can't change after being added to cart
         cart[product_id] = {
             'name': f'{surplus.product.name} (Surplus Deal)',
             'price': str(surplus.discounted_price),
@@ -430,10 +464,13 @@ def surplus_cart_add(request, pk):
     return redirect('cart_view')
 
 
+# ── Community board ──────────────────────────────────────────────────────────
+
 def community_list(request):
     posts = CommunityPost.objects.select_related('producer', 'product').order_by('-created_at')
     filter_type = request.GET.get('type', '')
     if filter_type:
+        # Allow filtering by post type (story / recipe / storage tip)
         posts = posts.filter(post_type=filter_type)
     return render(request, 'marketplace/community.html', {'posts': posts, 'filter': filter_type})
 
@@ -452,12 +489,15 @@ def community_add(request):
             return redirect('community_list')
     else:
         form = CommunityPostForm()
+        # Restrict the product dropdown to only this producer's own products
         form.fields['product'].queryset = Product.objects.filter(
             producer=request.user.producer_profile, is_active=True
         )
         form.fields['product'].required = False
     return render(request, 'marketplace/community_form.html', {'form': form})
 
+
+# ── Settlements (producer earnings) ─────────────────────────────────────────
 
 @login_required
 def settlements(request):
@@ -474,6 +514,7 @@ def settlements(request):
 
 @login_required
 def settlements_export(request):
+    # Returns a downloadable CSV of all the producer's settlement records
     if request.user.role != 'producer':
         return redirect('home')
     producer = request.user.producer_profile
@@ -488,7 +529,10 @@ def settlements_export(request):
     return response
 
 
+# ── Recall notices ───────────────────────────────────────────────────────────
+
 def recall_list(request):
+    # Public page — all visitors can see active recalls for food safety transparency
     recalls = RecallNotice.objects.select_related('product', 'issued_by').order_by('-created_at')
     return render(request, 'marketplace/recall_list.html', {'recalls': recalls})
 
@@ -504,6 +548,7 @@ def recall_new(request):
             recall.issued_by = request.user.producer_profile
             recall.status = 'issued'
             recall.save()
+            # Log the recall issuance so there is an immutable record of when it happened
             AuditLog.objects.create(
                 user=request.user,
                 action=f'Recall issued for {recall.product.name}',
@@ -515,6 +560,7 @@ def recall_new(request):
             return redirect('recall_detail', pk=recall.id)
     else:
         form = RecallNoticeForm()
+        # Only allow the producer to recall their own products
         form.fields['product'].queryset = Product.objects.filter(
             producer=request.user.producer_profile
         )
@@ -526,6 +572,7 @@ def recall_detail(request, pk):
     if request.user.role != 'producer':
         return redirect('home')
     recall = get_object_or_404(RecallNotice, pk=pk, issued_by=request.user.producer_profile)
+    # Fetch the list of orders that contained this product in the affected date range
     affected_items = recall.get_affected_orders()
     return render(request, 'marketplace/recall_detail.html', {
         'recall': recall,

@@ -1,6 +1,7 @@
 import math
 
-# Approximate lat/lon for common UK postcode districts
+# Offline lookup — avoids hitting an external geocoding API on every page load.
+# Covers Bristol and surrounding areas served by the marketplace.
 POSTCODE_COORDS = {
     'BS1': (51.4545, -2.5879),
     'BS2': (51.4600, -2.5700),
@@ -66,7 +67,7 @@ def _get_coords(postcode):
 
 
 def _haversine(lat1, lon1, lat2, lon2):
-    R = 3958.8  # Earth radius in miles
+    R = 3958.8  # Earth's mean radius in miles — gives straight-line distance, not road distance
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
     a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2

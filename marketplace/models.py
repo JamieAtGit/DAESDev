@@ -2,6 +2,7 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 
 
+# Extends Django's built-in user model to add a role field and delivery details
 class CustomUser(AbstractUser):
     ROLE_CHOICES = [
         ('customer', 'Customer'),
@@ -19,6 +20,7 @@ class CustomUser(AbstractUser):
         return f"{self.username} ({self.role})"
 
 
+# Stores the public-facing business information for a producer user
 class ProducerProfile(models.Model):
     user = models.OneToOneField(
         CustomUser, on_delete=models.CASCADE, related_name='producer_profile'
@@ -26,15 +28,16 @@ class ProducerProfile(models.Model):
     business_name = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     address = models.TextField()
-    postcode = models.CharField(max_length=10)
+    postcode = models.CharField(max_length=10)  # used to calculate food miles
 
     def __str__(self):
         return self.business_name
 
 
+# Simple product categories (e.g. Vegetables, Dairy) used to filter the marketplace
 class Category(models.Model):
     name = models.CharField(max_length=100)
-    slug = models.SlugField(unique=True)
+    slug = models.SlugField(unique=True)  # URL-friendly version of the name
     description = models.TextField(blank=True)
 
     class Meta:
@@ -44,6 +47,7 @@ class Category(models.Model):
         return self.name
 
 
+# A product listed by a producer on the marketplace
 class Product(models.Model):
     producer = models.ForeignKey(
         ProducerProfile, on_delete=models.CASCADE, related_name='products'
@@ -61,8 +65,8 @@ class Product(models.Model):
     best_before = models.DateField(null=True, blank=True)
     farm_origin = models.CharField(max_length=200, blank=True)
     is_seasonal = models.BooleanField(default=False)
-    seasonal_months = models.CharField(max_length=200, blank=True)
-    lead_time_hours = models.PositiveIntegerField(default=48)
+    seasonal_months = models.CharField(max_length=200, blank=True)  # e.g. "October – February"
+    lead_time_hours = models.PositiveIntegerField(default=48)  # minimum notice needed before delivery
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -71,6 +75,7 @@ class Product(models.Model):
         return f"{self.name} — {self.producer.business_name}"
 
 
+# A time-limited discounted listing for produce that needs to be sold quickly
 class SurplusProduce(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='surplus_listings')
     original_price = models.DecimalField(max_digits=8, decimal_places=2)
@@ -86,12 +91,14 @@ class SurplusProduce(models.Model):
 
     @property
     def discount_percentage(self):
+        # Calculate how much cheaper the surplus price is as a percentage
         if self.original_price:
             saving = self.original_price - self.discounted_price
             return round((saving / self.original_price) * 100)
         return 0
 
 
+# A post shared by a producer — can be a farm story, recipe, or storage tip
 class CommunityPost(models.Model):
     POST_TYPE_CHOICES = [
         ('story', 'Farm Story'),
@@ -109,6 +116,7 @@ class CommunityPost(models.Model):
         return f"{self.get_post_type_display()} — {self.title}"
 
 
+# Records how much each producer is owed after a 5% platform commission is deducted
 class PaymentSettlement(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
@@ -120,7 +128,7 @@ class PaymentSettlement(models.Model):
     commission_deducted = models.DecimalField(max_digits=10, decimal_places=2)
     net_amount = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    week_ending = models.DateField()
+    week_ending = models.DateField()  # settlements are grouped by the week they fall in
     paid_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -128,10 +136,11 @@ class PaymentSettlement(models.Model):
         return f"Settlement for {self.producer.business_name} — week ending {self.week_ending}"
 
 
+# A tamper-evident log of important actions (orders placed, statuses changed, recalls issued)
 class AuditLog(models.Model):
     user = models.ForeignKey('CustomUser', on_delete=models.SET_NULL, null=True, blank=True)
     action = models.CharField(max_length=255)
-    resource_type = models.CharField(max_length=100, blank=True)
+    resource_type = models.CharField(max_length=100, blank=True)  # e.g. 'Order', 'RecallNotice'
     resource_id = models.CharField(max_length=100, blank=True)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     timestamp = models.DateTimeField(auto_now_add=True)
@@ -141,6 +150,7 @@ class AuditLog(models.Model):
         return f"[{self.timestamp:%Y-%m-%d %H:%M}] {self.user} — {self.action}"
 
 
+# A food safety recall notice raised by a producer for one of their products
 class RecallNotice(models.Model):
     STATUS_CHOICES = [
         ('draft', 'Draft'),
@@ -152,7 +162,7 @@ class RecallNotice(models.Model):
     reason = models.TextField()
     batch_info = models.CharField(max_length=200, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
-    affected_from = models.DateField(null=True, blank=True)
+    affected_from = models.DateField(null=True, blank=True)  # date range used to identify affected orders
     affected_to = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     resolved_at = models.DateTimeField(null=True, blank=True)
@@ -161,6 +171,7 @@ class RecallNotice(models.Model):
         return f"Recall: {self.product.name} — {self.status}"
 
     def get_affected_orders(self):
+        # Find all order items for this product that fall within the affected date range
         from django.db.models import Q
         qs = OrderItem.objects.filter(product=self.product).select_related('order', 'order__customer')
         if self.affected_from:
@@ -170,7 +181,7 @@ class RecallNotice(models.Model):
         return qs
 
 
-
+# A standing weekly order template — the platform uses this to generate orders automatically
 class RecurringOrder(models.Model):
     DAY_CHOICES = [
         ('monday', 'Monday'), ('tuesday', 'Tuesday'), ('wednesday', 'Wednesday'),
@@ -179,26 +190,28 @@ class RecurringOrder(models.Model):
     customer = models.ForeignKey('CustomUser', on_delete=models.CASCADE, related_name='recurring_orders')
     delivery_address = models.TextField()
     special_instructions = models.TextField(blank=True)
-    recurrence_day = models.CharField(max_length=20, choices=DAY_CHOICES)
-    delivery_day = models.CharField(max_length=20, choices=DAY_CHOICES)
+    recurrence_day = models.CharField(max_length=20, choices=DAY_CHOICES)  # day the order is placed
+    delivery_day = models.CharField(max_length=20, choices=DAY_CHOICES)    # day delivery is expected
     is_active = models.BooleanField(default=True)
-    next_order_date = models.DateField()
+    next_order_date = models.DateField()  # date the next auto-order should be generated
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"Recurring order for {self.customer.username} every {self.recurrence_day}"
 
 
+# The individual product lines within a recurring order template
 class RecurringOrderItem(models.Model):
     recurring_order = models.ForeignKey(RecurringOrder, on_delete=models.CASCADE, related_name='items')
     product = models.ForeignKey('Product', on_delete=models.SET_NULL, null=True)
     quantity = models.PositiveIntegerField()
-    unit_price = models.DecimalField(max_digits=8, decimal_places=2)
+    unit_price = models.DecimalField(max_digits=8, decimal_places=2)  # price locked at time of setup
 
     def __str__(self):
         return f"{self.quantity} x {self.product.name}"
 
 
+# A customer's completed purchase — contains delivery details and the total charged
 class Order(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
@@ -209,7 +222,7 @@ class Order(models.Model):
     customer = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='orders')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    total_price = models.DecimalField(max_digits=10, decimal_places=2)
+    total_price = models.DecimalField(max_digits=10, decimal_places=2)  # includes commission
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     delivery_address = models.TextField()
     delivery_date = models.DateField()
@@ -220,6 +233,7 @@ class Order(models.Model):
         return f"Order #{self.id} by {self.customer.username}"
 
 
+# A single product line within an order, with the quantity and price at time of purchase
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
     product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True)

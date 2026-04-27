@@ -11,6 +11,7 @@
         <form method="post">
             {% csrf_token %}
             {% for field in form %}
+                {% if field.name != 'make_recurring' and field.name != 'recurrence_day' and field.name != 'delivery_day' %}
                 <div style="margin-bottom:1rem;">
                     <label style="display:block; margin-bottom:0.3rem;">{{ field.label }}</label>
                     {{ field }}
@@ -18,6 +19,7 @@
                         <p style="color:red; font-size:0.85rem;">{{ field.errors.0 }}</p>
                     {% endif %}
                 </div>
+                {% endif %}
             {% endfor %}
             <div style="background:#f9f9f4; border-radius:6px; padding:1rem; margin-bottom:1rem;">
                 <h3 style="font-size:1rem; margin-bottom:0.75rem;">Recurring Order</h3>

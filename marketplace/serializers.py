@@ -17,6 +17,7 @@ class ProducerSummarySerializer(serializers.ModelSerializer):
 class ProductSerializer(serializers.ModelSerializer):
     producer = ProducerSummarySerializer(read_only=True)
     category = CategorySerializer(read_only=True)
+    # category_id accepts a PK on write so the client doesn't have to send the full nested object
     category_id = serializers.PrimaryKeyRelatedField(
         queryset=Category.objects.all(),
         source='category',
@@ -50,6 +51,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
 class SurplusProduceSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
     producer = serializers.CharField(source='product.producer.business_name', read_only=True)
+    # Computed field — mirrors the model property so API clients don't have to calculate it themselves
     discount_percentage = serializers.SerializerMethodField()
 
     class Meta:
