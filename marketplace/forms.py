@@ -111,6 +111,19 @@ class CheckoutForm(forms.Form):
         label='Special instructions (optional)',
         help_text='e.g. Delivery to kitchen entrance, contact kitchen manager',
     )
+    # Card payment fields — the actual charge is simulated, see payments.py
+    card_number = forms.CharField(
+        max_length=19, label='Card number',
+        widget=forms.TextInput(attrs={'placeholder': '4242 4242 4242 4242', 'autocomplete': 'off'}),
+    )
+    card_expiry = forms.CharField(
+        max_length=5, label='Expiry (MM/YY)',
+        widget=forms.TextInput(attrs={'placeholder': 'MM/YY', 'autocomplete': 'off'}),
+    )
+    card_cvv = forms.CharField(
+        max_length=4, label='CVV',
+        widget=forms.TextInput(attrs={'placeholder': '123', 'autocomplete': 'off'}),
+    )
     # Recurring order fields — only required if the customer ticks the checkbox
     make_recurring = forms.BooleanField(required=False, label='Make this a recurring weekly order')
     recurrence_day = forms.ChoiceField(
@@ -133,6 +146,33 @@ class CheckoutForm(forms.Form):
             if not cleaned_data.get('delivery_day'):
                 raise forms.ValidationError('Please select your preferred delivery day.')
         return cleaned_data
+
+    def clean_card_number(self):
+        number = self.cleaned_data.get('card_number', '').replace(' ', '')
+        if not number.isdigit() or len(number) != 16:
+            raise forms.ValidationError('Card number must be 16 digits.')
+        return number
+
+    def clean_card_cvv(self):
+        cvv = self.cleaned_data.get('card_cvv', '').strip()
+        if not cvv.isdigit() or len(cvv) not in (3, 4):
+            raise forms.ValidationError('CVV must be 3 or 4 digits.')
+        return cvv
+
+    def clean_card_expiry(self):
+        from datetime import date
+        expiry = self.cleaned_data.get('card_expiry', '').strip()
+        try:
+            month, year = expiry.split('/')
+            month, year = int(month), int(year) + 2000
+            if not 1 <= month <= 12:
+                raise ValueError
+        except ValueError:
+            raise forms.ValidationError('Enter expiry as MM/YY, e.g. 08/27.')
+        # A card is usable until the end of its expiry month
+        if (year, month) < (date.today().year, date.today().month):
+            raise forms.ValidationError('This card has expired.')
+        return expiry
 
     def clean_delivery_date(self):
         # Enforce the minimum 48-hour lead time required by producers

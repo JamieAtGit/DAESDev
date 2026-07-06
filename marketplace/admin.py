@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import CustomUser, ProducerProfile, Category, Product, Order, OrderItem, SurplusProduce, CommunityPost, PaymentSettlement, AuditLog, RecallNotice, Review
+from .models import CustomUser, ProducerProfile, Category, Product, Order, OrderItem, SurplusProduce, CommunityPost, PaymentSettlement, PaymentTransaction, AuditLog, RecallNotice, Review
 
 
 @admin.register(CustomUser)
@@ -47,6 +47,12 @@ class CommunityPostAdmin(admin.ModelAdmin):
 class PaymentSettlementAdmin(admin.ModelAdmin):
     list_display = ['producer', 'order', 'gross_amount', 'commission_deducted', 'net_amount', 'status', 'week_ending']
     list_filter = ['status', 'week_ending']
+
+
+@admin.register(PaymentTransaction)
+class PaymentTransactionAdmin(admin.ModelAdmin):
+    list_display = ['transaction_ref', 'order', 'amount', 'card_last4', 'created_at']
+    search_fields = ['transaction_ref']
 
 
 @admin.register(AuditLog)

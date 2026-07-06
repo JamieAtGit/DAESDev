@@ -10,8 +10,13 @@
         <h3 style="margin-bottom:1rem;">Delivery Details</h3>
         <form method="post">
             {% csrf_token %}
+            {% if form.non_field_errors %}
+                <div style="background:#f8d7da; color:#721c24; border-radius:6px; padding:0.75rem 1rem; margin-bottom:1rem; font-size:0.9rem;">
+                    {% for error in form.non_field_errors %}<p style="margin:0.2rem 0;">{{ error }}</p>{% endfor %}
+                </div>
+            {% endif %}
             {% for field in form %}
-                {% if field.name != 'make_recurring' and field.name != 'recurrence_day' and field.name != 'delivery_day' %}
+                {% if field.name != 'make_recurring' and field.name != 'recurrence_day' and field.name != 'delivery_day' and field.name != 'card_number' and field.name != 'card_expiry' and field.name != 'card_cvv' %}
                 <div style="margin-bottom:1rem;">
                     <label style="display:block; margin-bottom:0.3rem;">{{ field.label }}</label>
                     {{ field }}
@@ -21,6 +26,30 @@
                 </div>
                 {% endif %}
             {% endfor %}
+            <div style="background:#f9f9f4; border-radius:6px; padding:1rem; margin-bottom:1rem;">
+                <h3 style="font-size:1rem; margin-bottom:0.75rem;">Card Payment</h3>
+                <p style="font-size:0.82rem; color:#856404; background:#fff3cd; padding:0.4rem 0.6rem; border-radius:4px; margin-bottom:0.75rem;">
+                    Test mode — no real payment is taken. Use card 4242&nbsp;4242&nbsp;4242&nbsp;4242
+                    with any future expiry and any CVV. Card 4000&nbsp;0000&nbsp;0000&nbsp;0002 simulates a decline.
+                </p>
+                <div style="margin-bottom:0.75rem;">
+                    <label style="display:block; margin-bottom:0.3rem; font-size:0.85rem;">{{ form.card_number.label }}</label>
+                    {{ form.card_number }}
+                    {% if form.card_number.errors %}<p style="color:red; font-size:0.85rem;">{{ form.card_number.errors.0 }}</p>{% endif %}
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+                    <div>
+                        <label style="display:block; margin-bottom:0.3rem; font-size:0.85rem;">{{ form.card_expiry.label }}</label>
+                        {{ form.card_expiry }}
+                        {% if form.card_expiry.errors %}<p style="color:red; font-size:0.85rem;">{{ form.card_expiry.errors.0 }}</p>{% endif %}
+                    </div>
+                    <div>
+                        <label style="display:block; margin-bottom:0.3rem; font-size:0.85rem;">{{ form.card_cvv.label }}</label>
+                        {{ form.card_cvv }}
+                        {% if form.card_cvv.errors %}<p style="color:red; font-size:0.85rem;">{{ form.card_cvv.errors.0 }}</p>{% endif %}
+                    </div>
+                </div>
+            </div>
             <div style="background:#f9f9f4; border-radius:6px; padding:1rem; margin-bottom:1rem;">
                 <h3 style="font-size:1rem; margin-bottom:0.75rem;">Recurring Order</h3>
                 <div style="margin-bottom:0.75rem; display:flex; align-items:center; gap:0.6rem;">

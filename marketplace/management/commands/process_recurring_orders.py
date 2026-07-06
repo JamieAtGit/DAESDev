@@ -1,10 +1,11 @@
+import uuid
 from datetime import date, timedelta
 
 from django.core.management.base import BaseCommand
 
 from marketplace.models import (
     AuditLog, Order, OrderItem, PaymentSettlement,
-    RecurringOrder, RecurringOrderItem,
+    PaymentTransaction, RecurringOrder, RecurringOrderItem,
 )
 
 
@@ -81,6 +82,14 @@ class Command(BaseCommand):
                     net_amount=net,
                     week_ending=week_ending,
                 )
+
+            # No card is stored on file, so auto-generated orders get a
+            # recurring payment reference instead of a card charge
+            PaymentTransaction.objects.create(
+                order=order,
+                amount=grand_total,
+                transaction_ref='REC-' + uuid.uuid4().hex[:12].upper(),
+            )
 
             AuditLog.objects.create(
                 user=rec.customer,

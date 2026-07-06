@@ -52,6 +52,14 @@
     <div style="margin-top:1rem; text-align:right; font-size:0.9rem;">
         <p style="margin:0.25rem 0; color:#666;">Network commission (5%): £{{ order.commission_amount }}</p>
         <p style="margin:0.4rem 0; font-size:1.1rem;"><strong>Total paid: £{{ order.total_price }}</strong></p>
+        {% with payment=order.payments.first %}
+        {% if payment %}
+        <p style="margin:0.25rem 0; color:#888; font-size:0.82rem;">
+            Paid by card{% if payment.card_last4 %} ending {{ payment.card_last4 }}{% endif %}
+            &mdash; ref {{ payment.transaction_ref }}
+        </p>
+        {% endif %}
+        {% endwith %}
     </div>
 
     <hr style="border:none; border-top:1px solid #eee; margin:1rem 0;">

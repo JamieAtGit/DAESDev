@@ -12,9 +12,10 @@ from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.db.models import Avg, F
 from .forms import RegisterForm, ProducerRegistrationForm, CommunityGroupRegistrationForm, ProductForm, CheckoutForm, CommunityPostForm, RecallNoticeForm, ReviewForm
-from .models import ProducerProfile, Product, Category, Order, OrderItem, SurplusProduce, CommunityPost, PaymentSettlement, AuditLog, RecallNotice, RecurringOrder, RecurringOrderItem, Review
+from .models import ProducerProfile, Product, Category, Order, OrderItem, SurplusProduce, CommunityPost, PaymentSettlement, PaymentTransaction, AuditLog, RecallNotice, RecurringOrder, RecurringOrderItem, Review
 from .surplus_forms import SurplusProduceForm
 from .food_miles import calculate_food_miles
+from .payments import process_card_payment
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 
@@ -369,6 +370,27 @@ def checkout(request):  # TC-007: single producer order; TC-008: multi-vendor; T
     if request.method == 'POST':
         form = CheckoutForm(request.POST)
         if form.is_valid():
+            # "Charge" the card first — no order is created if the payment fails
+            payment_ok, payment_ref = process_card_payment(
+                form.cleaned_data['card_number'], grand_total
+            )
+            if not payment_ok:
+                # Log the failed attempt so declined payments are traceable
+                AuditLog.objects.create(
+                    user=request.user,
+                    action='Payment declined at checkout',
+                    resource_type='Payment',
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                    notes=payment_ref,
+                )
+                messages.error(request, f'Payment failed: {payment_ref} Your order has not been placed.')
+                return render(request, 'marketplace/checkout.html', {
+                    'form': form,
+                    'cart': cart,
+                    'total': total,
+                    'commission': commission,
+                    'grand_total': grand_total,
+                })
             # Save the order record
             order = Order.objects.create(
                 customer=request.user,
@@ -391,6 +413,14 @@ def checkout(request):  # TC-007: single producer order; TC-008: multi-vendor; T
                 product.stock = max(0, product.stock - item['quantity'])
                 product.save(update_fields=['stock'])
             del request.session['cart']
+
+            # Record the payment against the order so it is traceable later
+            PaymentTransaction.objects.create(
+                order=order,
+                amount=grand_total,
+                transaction_ref=payment_ref,
+                card_last4=form.cleaned_data['card_number'][-4:],
+            )
 
             # Create a PaymentSettlement for each producer involved in this order
             from datetime import date, timedelta
