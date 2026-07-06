@@ -1,3 +1,8 @@
+# food_miles.py — calculates straight-line distance in miles between two postcodes.
+# Uses a hardcoded coordinate dictionary instead of an external API so the system
+# works fully offline inside Docker. Replaced pgeocode which returned NaN values
+# in the containerised environment due to a corrupt dataset.
+
 import math
 
 # Offline lookup — avoids hitting an external geocoding API on every page load.
@@ -58,7 +63,7 @@ BRISTOL_CENTRE = (51.4545, -2.5879)
 
 def _get_coords(postcode):
     pc = postcode.upper().replace(' ', '')
-    # Try longest prefix first (e.g. BS48, then BS4)
+    # Try longest prefix first (BS48 before BS4) so more specific districts take priority
     for length in [4, 3, 2]:
         prefix = pc[:length]
         if prefix in POSTCODE_COORDS:
@@ -67,7 +72,8 @@ def _get_coords(postcode):
 
 
 def _haversine(lat1, lon1, lat2, lon2):
-    R = 3958.8  # Earth's mean radius in miles — gives straight-line distance, not road distance
+    # Standard Haversine formula — straight-line distance in miles, not road distance
+    R = 3958.8  # Earth's mean radius in miles
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
     a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
@@ -77,6 +83,7 @@ def _haversine(lat1, lon1, lat2, lon2):
 def calculate_food_miles(postcode_from, postcode_to):
     coords_from = _get_coords(postcode_from)
     coords_to = _get_coords(postcode_to)
+    # Returns None if either postcode isn't in our lookup — the template handles this gracefully
     if not coords_from or not coords_to:
         return None
     return _haversine(coords_from[0], coords_from[1], coords_to[0], coords_to[1])

@@ -1,3 +1,6 @@
+# serializers.py — converts Django model instances to JSON for the REST API (TC-020).
+# Each serializer controls which fields are exposed in the API response.
+
 from rest_framework import serializers
 from .models import Category, Product, ProducerProfile, Order, OrderItem, SurplusProduce, CommunityPost
 

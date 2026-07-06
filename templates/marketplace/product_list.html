@@ -20,10 +20,20 @@
     <select name="allergen" style="padding:0.5rem; border:1px solid #ccc; border-radius:4px;">
         <option value="">All allergens</option>
         <option value="none" {% if allergen == 'none' %}selected{% endif %}>No allergens</option>
-        <option value="gluten" {% if allergen == 'gluten' %}selected{% endif %}>Contains gluten</option>
-        <option value="eggs" {% if allergen == 'eggs' %}selected{% endif %}>Contains eggs</option>
-        <option value="milk" {% if allergen == 'milk' %}selected{% endif %}>Contains milk/dairy</option>
-        <option value="nuts" {% if allergen == 'nuts' %}selected{% endif %}>Contains nuts</option>
+        <option value="Celery" {% if allergen == 'Celery' %}selected{% endif %}>Celery</option>
+        <option value="Cereals containing gluten" {% if allergen == 'Cereals containing gluten' %}selected{% endif %}>Cereals containing gluten</option>
+        <option value="Crustaceans" {% if allergen == 'Crustaceans' %}selected{% endif %}>Crustaceans</option>
+        <option value="Eggs" {% if allergen == 'Eggs' %}selected{% endif %}>Eggs</option>
+        <option value="Fish" {% if allergen == 'Fish' %}selected{% endif %}>Fish</option>
+        <option value="Lupin" {% if allergen == 'Lupin' %}selected{% endif %}>Lupin</option>
+        <option value="Milk" {% if allergen == 'Milk' %}selected{% endif %}>Milk</option>
+        <option value="Molluscs" {% if allergen == 'Molluscs' %}selected{% endif %}>Molluscs</option>
+        <option value="Mustard" {% if allergen == 'Mustard' %}selected{% endif %}>Mustard</option>
+        <option value="Peanuts" {% if allergen == 'Peanuts' %}selected{% endif %}>Peanuts</option>
+        <option value="Sesame seeds" {% if allergen == 'Sesame seeds' %}selected{% endif %}>Sesame seeds</option>
+        <option value="Soya" {% if allergen == 'Soya' %}selected{% endif %}>Soya</option>
+        <option value="Sulphites" {% if allergen == 'Sulphites' %}selected{% endif %}>Sulphur dioxide / sulphites</option>
+        <option value="Tree nuts" {% if allergen == 'Tree nuts' %}selected{% endif %}>Tree nuts</option>
     </select>
     <button type="submit" class="btn btn-green">Filter</button>
 </form>

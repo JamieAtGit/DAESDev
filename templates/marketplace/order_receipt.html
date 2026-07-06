@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+
+{% block title %}Receipt — Order #{{ order.id }}{% endblock %}
+
+{% block content %}
+<div style="max-width:640px; margin:0 auto; background:white; padding:2rem; border-radius:8px;">
+
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1.5rem;">
+        <div>
+            <h2 style="margin:0;">Order Receipt</h2>
+            <p style="color:#888; margin:0.25rem 0 0; font-size:0.9rem;">Order #{{ order.id }}</p>
+        </div>
+        <div style="text-align:right; font-size:0.85rem; color:#666;">
+            <p style="margin:0; font-weight:bold;">Bristol Regional Food Network</p>
+            <p style="margin:0;">Placed: {{ order.created_at|date:"d M Y" }}</p>
+        </div>
+    </div>
+
+    <hr style="border:none; border-top:1px solid #eee; margin:1rem 0;">
+
+    <p style="margin:0.3rem 0;"><strong>Delivery address:</strong> {{ order.delivery_address }}</p>
+    <p style="margin:0.3rem 0;"><strong>Delivery date:</strong> {{ order.delivery_date|date:"d M Y" }}</p>
+    {% if order.special_instructions %}
+    <p style="margin:0.3rem 0;"><strong>Instructions:</strong> {{ order.special_instructions }}</p>
+    {% endif %}
+
+    <hr style="border:none; border-top:1px solid #eee; margin:1rem 0;">
+
+    <table>
+        <thead>
+            <tr>
+                <th>Product</th>
+                <th>Producer</th>
+                <th>Qty</th>
+                <th>Unit Price</th>
+                <th>Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.product.name }}</td>
+                <td>{{ item.product.producer.business_name }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>£{{ item.unit_price }}</td>
+                <td>£{{ item.subtotal }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div style="margin-top:1rem; text-align:right; font-size:0.9rem;">
+        <p style="margin:0.25rem 0; color:#666;">Network commission (5%): £{{ order.commission_amount }}</p>
+        <p style="margin:0.4rem 0; font-size:1.1rem;"><strong>Total paid: £{{ order.total_price }}</strong></p>
+    </div>
+
+    <hr style="border:none; border-top:1px solid #eee; margin:1rem 0;">
+
+    <p style="font-size:0.82rem; color:#aaa; text-align:center;">
+        Status: {{ order.get_status_display }} &mdash; Bristol Regional Food Network &copy; 2025
+    </p>
+
+    <div style="display:flex; gap:0.75rem; margin-top:1.25rem;">
+        <button onclick="window.print()" class="btn btn-green">Print Receipt</button>
+        <a href="{% url 'my_orders' %}" class="btn" style="background:#eee; color:#333;">Back to Orders</a>
+    </div>
+</div>
+{% endblock %}

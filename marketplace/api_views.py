@@ -1,3 +1,7 @@
+# api_views.py — REST API endpoints for the marketplace (TC-020).
+# JWT authentication is required for write operations; read endpoints are public.
+# Available at /api/ — products, categories, orders, surplus, and community posts.
+
 from rest_framework import viewsets, permissions, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response

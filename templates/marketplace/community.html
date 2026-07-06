@@ -37,6 +37,10 @@
                 By {{ post.producer.business_name }}
                 {% if post.product %} — about <a href="/products/{{ post.product.id }}/">{{ post.product.name }}</a>{% endif %}
             </p>
+            {% if post.image_url %}
+            <img src="{{ post.image_url }}" alt="{{ post.title }}"
+                 style="max-width:100%; border-radius:6px; margin-bottom:0.75rem; max-height:300px; object-fit:cover;">
+            {% endif %}
             <p style="font-size:0.9rem; white-space:pre-line;">{{ post.content }}</p>
         </div>
         {% endfor %}

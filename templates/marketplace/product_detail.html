@@ -47,9 +47,13 @@
         <tr>
             <td style="padding:0.4rem 0; color:#666;">Availability</td>
             <td>
-                <span style="background:#d4edda; color:#155724; padding:0.2rem 0.5rem; border-radius:4px; font-size:0.85rem;">In Season</span>
-                {% if product.seasonal_months %}
-                <span style="font-size:0.85rem; color:#555; margin-left:0.4rem;">{{ product.seasonal_months }}</span>
+                {% if product.is_currently_in_season %}
+                    <span style="background:#d4edda; color:#155724; padding:0.2rem 0.5rem; border-radius:4px; font-size:0.85rem;">In Season</span>
+                {% else %}
+                    <span style="background:#f8d7da; color:#721c24; padding:0.2rem 0.5rem; border-radius:4px; font-size:0.85rem;">Out of Season</span>
+                {% endif %}
+                {% if product.season_display %}
+                <span style="font-size:0.85rem; color:#555; margin-left:0.4rem;">Available: {{ product.season_display }}</span>
                 {% endif %}
             </td>
         </tr>

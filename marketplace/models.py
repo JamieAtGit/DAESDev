@@ -1,3 +1,7 @@
+# models.py — defines every database table in the system.
+# Each class is a table; each field is a column.
+# Relationships between tables are defined using ForeignKey and OneToOneField.
+
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
@@ -67,13 +71,37 @@ class Product(models.Model):
     is_seasonal = models.BooleanField(default=False)
     seasonal_months = models.CharField(max_length=200, blank=True)  # e.g. "October – February"
     lead_time_hours = models.PositiveIntegerField(default=48)  # minimum notice needed before delivery
-    low_stock_threshold = models.PositiveIntegerField(default=10)  # alert producer when stock falls to or below this; 0 = disabled
+    low_stock_threshold = models.PositiveIntegerField(default=10)  # dashboard alert fires when stock <= this value; set to 0 to disable
+    MONTH_CHOICES = [(i, m) for i, m in enumerate(
+        ['January', 'February', 'March', 'April', 'May', 'June',
+         'July', 'August', 'September', 'October', 'November', 'December'], start=1
+    )]
+    season_start_month = models.PositiveSmallIntegerField(null=True, blank=True, choices=MONTH_CHOICES)
+    season_end_month = models.PositiveSmallIntegerField(null=True, blank=True, choices=MONTH_CHOICES)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.name} — {self.producer.business_name}"
+
+    @property
+    def season_display(self):
+        month_names = ['January', 'February', 'March', 'April', 'May', 'June',
+                       'July', 'August', 'September', 'October', 'November', 'December']
+        if self.season_start_month and self.season_end_month:
+            return f"{month_names[self.season_start_month - 1]} – {month_names[self.season_end_month - 1]}"
+        return self.seasonal_months
+
+    @property
+    def is_currently_in_season(self):
+        from datetime import date
+        if not self.is_seasonal or not self.season_start_month or not self.season_end_month:
+            return True
+        m = date.today().month
+        if self.season_start_month <= self.season_end_month:
+            return self.season_start_month <= m <= self.season_end_month
+        return m >= self.season_start_month or m <= self.season_end_month
 
 
 # A time-limited discounted listing for produce that needs to be sold quickly
@@ -111,6 +139,7 @@ class CommunityPost(models.Model):
     post_type = models.CharField(max_length=20, choices=POST_TYPE_CHOICES)
     title = models.CharField(max_length=200)
     content = models.TextField()
+    image_url = models.URLField(blank=True, help_text='Optional: paste a URL to an image for this post')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -129,7 +158,7 @@ class PaymentSettlement(models.Model):
     commission_deducted = models.DecimalField(max_digits=10, decimal_places=2)
     net_amount = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    week_ending = models.DateField()  # settlements are grouped by the week they fall in
+    week_ending = models.DateField()  # always the coming Saturday — used to group settlements by week
     paid_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -172,7 +201,7 @@ class RecallNotice(models.Model):
         return f"Recall: {self.product.name} — {self.status}"
 
     def get_affected_orders(self):
-        # Find all order items for this product that fall within the affected date range
+        # Traverse OrderItem → Order using the double-underscore ORM syntax to filter by order date
         from django.db.models import Q
         qs = OrderItem.objects.filter(product=self.product).select_related('order', 'order__customer')
         if self.affected_from:
@@ -256,7 +285,8 @@ class Review(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('customer', 'product')  # one review per customer per product
+        # Database-level constraint — the view layer checks this too, but this is the safety net
+        unique_together = ('customer', 'product')
 
     def __str__(self):
         return f"{self.rating}★ — {self.product.name} by {self.customer.username}"

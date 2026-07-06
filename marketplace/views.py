@@ -1,3 +1,7 @@
+# views.py — request handling for every page in the marketplace.
+# Each function maps to a URL in urls.py and returns an HTTP response.
+# Role checks at the top of each view enforce access control.
+
 import csv
 from django.http import HttpResponse
 from django.shortcuts import render, redirect
@@ -33,7 +37,7 @@ def home(request):
 
 # ── Authentication ───────────────────────────────────────────────────────────
 
-def register(request):
+def register(request):  # TC-002: customer registration
     # Redirect logged-in users away — they don't need to register again
     if request.user.is_authenticated:
         return redirect('home')
@@ -48,23 +52,25 @@ def register(request):
     return render(request, 'marketplace/register.html', {'form': form})
 
 
-def login_view(request):
+def login_view(request):  # TC-022: brute-force protection, session management, audit logging
     if request.user.is_authenticated:
         return redirect('home')
     if request.method == 'POST':
         ip = request.META.get('REMOTE_ADDR', 'unknown')
         username = request.POST.get('username', '')[:50]
-        # Lock per IP + username so a lockout on one account never affects others
+        # Keying on both IP and username means a lockout on one account doesn't
+        # block other users logging in from the same network
         cache_key = f'login_attempts_{ip}_{username}'
         attempts = cache.get(cache_key, 0)
         if attempts >= 5:
-            # Brute-force lockout: 5 failed attempts within 15 minutes blocks further tries
+            # 5 failed attempts triggers a 15-minute block (timeout=900 seconds below)
             messages.error(request, 'Too many failed login attempts. Please try again in 15 minutes.')
             return render(request, 'marketplace/login.html', {'form': AuthenticationForm()})
         form = AuthenticationForm(request, data=request.POST)
         if form.is_valid():
             user = form.get_user()
             login(request, user)
+            # Clear the counter on successful login so a later mistake doesn't trigger a lockout
             cache.delete(cache_key)
             AuditLog.objects.create(
                 user=user,
@@ -75,6 +81,7 @@ def login_view(request):
             )
             return redirect('home')
         else:
+            # Increment and store the counter; timeout=900 means it auto-expires after 15 minutes
             cache.set(cache_key, attempts + 1, timeout=900)
             AuditLog.objects.create(
                 user=None,
@@ -101,7 +108,7 @@ def logout_view(request):
     return redirect('home')
 
 
-def register_community_group(request):
+def register_community_group(request):  # TC-017: community group and restaurant registration
     if request.user.is_authenticated:
         return redirect('home')
     if request.method == 'POST':
@@ -109,6 +116,7 @@ def register_community_group(request):
         if form.is_valid():
             user = form.save(commit=False)
             user.role = 'community_group'
+            user.first_name = form.cleaned_data.get('organisation_name', '')
             user.phone = form.cleaned_data.get('phone', '')
             user.delivery_address = form.cleaned_data.get('delivery_address', '')
             user.delivery_postcode = form.cleaned_data.get('delivery_postcode', '')
@@ -120,7 +128,7 @@ def register_community_group(request):
     return render(request, 'marketplace/community_group_register.html', {'form': form})
 
 
-def register_producer(request):
+def register_producer(request):  # TC-001: producer registration, creates linked ProducerProfile
     if request.user.is_authenticated:
         return redirect('home')
     if request.method == 'POST':
@@ -148,7 +156,7 @@ def register_producer(request):
 # ── Producer dashboard & product management ──────────────────────────────────
 
 @login_required
-def dashboard(request):
+def dashboard(request):  # TC-023: low stock alerts; TC-003: product management entry point
     if request.user.role != 'producer':
         return redirect('home')
     profile, _ = ProducerProfile.objects.get_or_create(user=request.user)
@@ -163,7 +171,7 @@ def dashboard(request):
 
 
 @login_required
-def product_create(request):
+def product_create(request):  # TC-003: create a new product listing
     if request.user.role != 'producer':
         return redirect('home')
     if request.method == 'POST':
@@ -181,9 +189,10 @@ def product_create(request):
 
 
 @login_required
-def product_edit(request, pk):
+def product_edit(request, pk):  # TC-011: update stock and availability; TC-016: seasonal settings
     if request.user.role != 'producer':
         return redirect('home')
+    # The producer check in the query prevents one producer editing another's product via a guessed URL
     product = Product.objects.get(pk=pk, producer=request.user.producer_profile)
     if request.method == 'POST':
         form = ProductForm(request.POST, instance=product)
@@ -211,16 +220,16 @@ def product_delete(request, pk):
 
 # ── Product browsing ─────────────────────────────────────────────────────────
 
-def product_list(request):
-    # Start with all active products, then narrow down based on any filters the user has applied
-    products = Product.objects.filter(is_active=True).select_related('producer', 'category')
+def product_list(request):  # TC-004: category browse; TC-005: search; TC-014: organic filter; TC-015: allergen filter; TC-016: seasonal; TC-023: out-of-stock hiding
+    # Exclude inactive and out-of-stock products (TC-023 acceptance criterion)
+    products = Product.objects.filter(is_active=True, stock__gt=0).select_related('producer', 'category')
     search = request.GET.get('search', '')
     category = request.GET.get('category', '')
     organic = request.GET.get('organic', '')
     allergen = request.GET.get('allergen', '')
 
     if search:
-        # Search across both product name and description
+        # The | operator produces an OR query — matches name or description, case-insensitive
         products = products.filter(name__icontains=search) | products.filter(description__icontains=search)
     if category:
         products = products.filter(category__slug=category)
@@ -232,8 +241,23 @@ def product_list(request):
     elif allergen:
         products = products.filter(allergens__icontains=allergen)
 
+    # TC-016: hide out-of-season products — only applies when season months are explicitly set
+    from datetime import date as _date
+    current_month = _date.today().month
+    visible = []
+    for p in products:
+        if p.is_seasonal and p.season_start_month and p.season_end_month:
+            start, end = p.season_start_month, p.season_end_month
+            if start <= end:
+                in_season = start <= current_month <= end
+            else:  # season spans year boundary (e.g. Oct–Feb)
+                in_season = current_month >= start or current_month <= end
+            if not in_season:
+                continue
+        visible.append(p)
+
     return render(request, 'marketplace/product_list.html', {
-        'products': products,
+        'products': visible,
         'categories': Category.objects.all(),
         'search': search,
         'category': category,
@@ -242,11 +266,12 @@ def product_list(request):
     })
 
 
-def product_detail(request, pk):
+def product_detail(request, pk):  # TC-013: food miles; TC-015: allergens; TC-024: reviews display
     product = get_object_or_404(Product, pk=pk, is_active=True)
     food_miles = None
     if product.producer.postcode:
-        # Use the customer's saved postcode if logged in, otherwise fall back to central Bristol
+        # Use the customer's saved postcode if available; BS1 1AA (city centre) is the fallback
+        # so food miles are always shown even for anonymous visitors
         customer_postcode = (
             request.user.delivery_postcode
             if request.user.is_authenticated and request.user.delivery_postcode
@@ -270,7 +295,7 @@ def product_detail(request, pk):
 # ── Cart (stored in the session, not the database) ───────────────────────────
 
 @login_required
-def cart_add(request, pk):
+def cart_add(request, pk):  # TC-006: add item to session cart
     if request.method != 'POST':
         return redirect('product_list')
     product = get_object_or_404(Product, pk=pk, is_active=True)
@@ -294,13 +319,13 @@ def cart_add(request, pk):
 
 
 @login_required
-def cart_view(request):
+def cart_view(request):  # TC-006: view cart; TC-008: grouped by producer; TC-013: food miles total
     cart = request.session.get('cart', {})
     for item in cart.values():
         item['subtotal'] = round(float(item['price']) * item['quantity'], 2)
-        # Calculate food miles from the producer's farm to central Bristol for each item
         postcode = item.get('producer_postcode', '')
         if postcode:
+            # Cart doesn't have the customer's postcode easily available, so Bristol centre is used here
             fm = calculate_food_miles('BS11AA', postcode)
             item['food_miles'] = fm
         else:
@@ -329,7 +354,7 @@ def cart_remove(request, pk):
 # ── Checkout ─────────────────────────────────────────────────────────────────
 
 @login_required
-def checkout(request):
+def checkout(request):  # TC-007: single producer order; TC-008: multi-vendor; TC-018: recurring order setup; TC-025: commission
     cart = request.session.get('cart', {})
     if not cart:
         return redirect('cart_view')
@@ -362,23 +387,25 @@ def checkout(request):
                     quantity=item['quantity'],
                     unit_price=item['price'],
                 )
+                # max(0, ...) guards against stock going negative if two orders race
                 product.stock = max(0, product.stock - item['quantity'])
                 product.save(update_fields=['stock'])
             del request.session['cart']
 
             # Create a PaymentSettlement for each producer involved in this order
             from datetime import date, timedelta
-            # Week ending is always the coming Saturday
             week_ending = date.today() + timedelta(days=(6 - date.today().weekday()))
+            # Build a set of unique producers so multi-vendor orders produce one settlement each
             producers_in_order = set()
             for item in order.items.all():
                 if item.product:
                     producers_in_order.add(item.product.producer)
             for producer in producers_in_order:
+                # Filter to only this producer's items so the commission split is per-supplier
                 producer_items = order.items.filter(product__producer=producer)
                 gross = sum(float(i.unit_price) * i.quantity for i in producer_items)
-                producer_commission = round(gross * 0.05, 2)
-                net = round(gross - producer_commission, 2)
+                producer_commission = round(gross * 0.05, 2)  # platform retains 5%
+                net = round(gross - producer_commission, 2)   # producer receives the remaining 95%
                 PaymentSettlement.objects.create(
                     producer=producer,
                     order=order,
@@ -444,7 +471,7 @@ def checkout(request):
 
 # ── Surplus produce ──────────────────────────────────────────────────────────
 
-def surplus_list(request):
+def surplus_list(request):  # TC-019: view active surplus listings
     # Only show listings that are still active and haven't passed their available_until time
     listings = SurplusProduce.objects.filter(
         is_active=True,
@@ -454,7 +481,7 @@ def surplus_list(request):
 
 
 @login_required
-def surplus_add(request):
+def surplus_add(request):  # TC-019: producer creates a surplus listing with discount
     if request.user.role != 'producer':
         return redirect('home')
     if request.method == 'POST':
@@ -486,7 +513,7 @@ def surplus_remove(request, pk):
 
 
 @login_required
-def surplus_cart_add(request, pk):
+def surplus_cart_add(request, pk):  # TC-019: adds surplus item to cart at discounted price
     if request.method != 'POST':
         return redirect('surplus_list')
     surplus = get_object_or_404(SurplusProduce, pk=pk, is_active=True)
@@ -514,7 +541,7 @@ def surplus_cart_add(request, pk):
 
 # ── Community board ──────────────────────────────────────────────────────────
 
-def community_list(request):
+def community_list(request):  # TC-020: community board — stories, recipes, storage tips
     posts = CommunityPost.objects.select_related('producer', 'product').order_by('-created_at')
     filter_type = request.GET.get('type', '')
     if filter_type:
@@ -524,7 +551,7 @@ def community_list(request):
 
 
 @login_required
-def community_add(request):
+def community_add(request):  # TC-020: producer creates a story, recipe, or storage tip post
     if request.user.role != 'producer':
         return redirect('home')
     if request.method == 'POST':
@@ -548,7 +575,7 @@ def community_add(request):
 # ── Settlements (producer earnings) ─────────────────────────────────────────
 
 @login_required
-def settlements(request):
+def settlements(request):  # TC-012: producer views weekly payment settlements
     if request.user.role != 'producer':
         return redirect('home')
     producer = request.user.producer_profile
@@ -561,7 +588,7 @@ def settlements(request):
 
 
 @login_required
-def settlements_export(request):
+def settlements_export(request):  # TC-012: download settlements as CSV for tax reporting
     # Returns a downloadable CSV of all the producer's settlement records
     if request.user.role != 'producer':
         return redirect('home')
@@ -586,7 +613,7 @@ def recall_list(request):
 
 
 @login_required
-def recall_new(request):
+def recall_new(request):  # TC-018: producer issues a food safety recall notice
     if request.user.role != 'producer':
         return redirect('home')
     if request.method == 'POST':
@@ -616,7 +643,7 @@ def recall_new(request):
 
 
 @login_required
-def recall_detail(request, pk):
+def recall_detail(request, pk):  # TC-018: shows affected orders within the recall date range
     if request.user.role != 'producer':
         return redirect('home')
     recall = get_object_or_404(RecallNotice, pk=pk, issued_by=request.user.producer_profile)
@@ -629,7 +656,7 @@ def recall_detail(request, pk):
 
 
 @login_required
-def recurring_orders(request):
+def recurring_orders(request):  # TC-018: customer manages their recurring order templates
     orders = RecurringOrder.objects.filter(customer=request.user).prefetch_related('items__product').order_by('-created_at')
     return render(request, 'marketplace/recurring_orders.html', {'orders': orders})
 
@@ -661,7 +688,7 @@ def recurring_order_edit(request, pk):
 
 
 @login_required
-def my_orders(request):
+def my_orders(request):  # TC-021: customer order history; shows Write Review button on delivered orders
     orders = Order.objects.filter(customer=request.user).prefetch_related('items__product__producer').order_by('-created_at')
     reviewed_product_ids = set(
         Review.objects.filter(customer=request.user).values_list('product_id', flat=True)
@@ -673,7 +700,7 @@ def my_orders(request):
 
 
 @login_required
-def reorder(request, pk):
+def reorder(request, pk):  # TC-021: re-adds available items from a past order to the cart
     if request.method != 'POST':
         return redirect('my_orders')
     order = get_object_or_404(Order, pk=pk, customer=request.user)
@@ -702,7 +729,7 @@ def reorder(request, pk):
 
 
 @login_required
-def order_list(request):
+def order_list(request):  # TC-009: producer views incoming orders, filtered by status
     if request.user.role != 'producer':
         return redirect('home')
     producer = request.user.producer_profile
@@ -719,10 +746,12 @@ def order_list(request):
 
 
 @login_required
-def order_detail(request, pk):
+def order_detail(request, pk):  # TC-009: full order detail; TC-010: status update history
     if request.user.role != 'producer':
         return redirect('home')
     producer = request.user.producer_profile
+    # items__product__producer traverses Order → OrderItem → Product → ProducerProfile
+    # so a producer can only fetch orders that contain at least one of their products
     order = get_object_or_404(Order, pk=pk, items__product__producer=producer)
     items = order.items.filter(product__producer=producer).select_related('product')
     for item in items:
@@ -744,11 +773,12 @@ def order_detail(request, pk):
 
 
 @login_required
-def order_status_update(request, pk):
+def order_status_update(request, pk):  # TC-010: advances order through Pending → Confirmed → Ready → Delivered
     if request.method != 'POST' or request.user.role != 'producer':
         return redirect('order_list')
     producer = request.user.producer_profile
     order = get_object_or_404(Order, pk=pk, items__product__producer=producer)
+    # Dictionary enforces the allowed progression — a producer can't skip stages or go backwards
     progression = {'pending': 'confirmed', 'confirmed': 'ready', 'ready': 'delivered'}
     new_status = progression.get(order.status)
     if new_status:
@@ -786,12 +816,15 @@ def cart_update(request, pk):
 # ── Product reviews ──────────────────────────────────────────────────────────
 
 @login_required
-def review_submit(request, order_pk, product_pk):
+def review_submit(request, order_pk, product_pk):  # TC-024: verified purchase review — delivered orders only
+    # status='delivered' in the query means this 404s if the order hasn't been delivered yet
     order = get_object_or_404(Order, pk=order_pk, customer=request.user, status='delivered')
     product = get_object_or_404(Product, pk=product_pk)
+    # Verify the product was actually in this order — prevents reviewing items never purchased
     if not order.items.filter(product=product).exists():
         messages.error(request, 'You can only review products from your own delivered orders.')
         return redirect('my_orders')
+    # One review per customer per product — the unique_together constraint on the model backs this up
     if Review.objects.filter(customer=request.user, product=product).exists():
         messages.error(request, 'You have already reviewed this product.')
         return redirect('my_orders')
@@ -817,7 +850,7 @@ def review_submit(request, order_pk, product_pk):
 # ── Admin financial report ───────────────────────────────────────────────────
 
 @login_required
-def admin_report(request):
+def admin_report(request):  # TC-025: staff-only commission report with date filter, YTD totals, CSV export
     if not request.user.is_staff:
         return redirect('home')
     from datetime import date, timedelta
@@ -867,4 +900,18 @@ def admin_report(request):
         'ytd_commission': ytd_commission,
         'date_from': date_from,
         'date_to': date_to,
+    })
+
+
+# ── Order receipt ────────────────────────────────────────────────────────────
+
+@login_required
+def order_receipt(request, pk):  # TC-021: printable receipt for a past order
+    order = get_object_or_404(Order, pk=pk, customer=request.user)
+    items = order.items.select_related('product__producer').all()
+    for item in items:
+        item.subtotal = round(float(item.unit_price) * item.quantity, 2)
+    return render(request, 'marketplace/order_receipt.html', {
+        'order': order,
+        'items': items,
     })

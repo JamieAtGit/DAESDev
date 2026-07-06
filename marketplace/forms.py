@@ -1,6 +1,27 @@
+# forms.py — form classes for user input across the system.
+# Each form handles validation before data reaches the database.
+# The CheckoutForm enforces the 48-hour minimum delivery date here.
+
 from django.contrib.auth.forms import UserCreationForm
 from django import forms
 from .models import CustomUser, Product, CommunityPost, RecallNotice, Review
+
+UK_ALLERGENS = [
+    ('Celery', 'Celery'),
+    ('Cereals containing gluten', 'Cereals containing gluten (Wheat, Rye, Barley, Oats)'),
+    ('Crustaceans', 'Crustaceans'),
+    ('Eggs', 'Eggs'),
+    ('Fish', 'Fish'),
+    ('Lupin', 'Lupin'),
+    ('Milk', 'Milk'),
+    ('Molluscs', 'Molluscs'),
+    ('Mustard', 'Mustard'),
+    ('Peanuts', 'Peanuts'),
+    ('Sesame seeds', 'Sesame seeds'),
+    ('Soya', 'Soya'),
+    ('Sulphites', 'Sulphur dioxide and sulphites'),
+    ('Tree nuts', 'Tree nuts (Almonds, Hazelnuts, Walnuts, Cashews, Pecans, Brazil nuts, Pistachios, Macadamia)'),
+]
 
 
 # Registration form for regular customers — captures delivery details at sign-up
@@ -127,9 +148,13 @@ class CheckoutForm(forms.Form):
 class CommunityPostForm(forms.ModelForm):
     class Meta:
         model = CommunityPost
-        fields = ['post_type', 'title', 'content', 'product']
+        fields = ['post_type', 'title', 'content', 'product', 'image_url']
         widgets = {
             'content': forms.Textarea(attrs={'rows': 5}),
+            'image_url': forms.URLInput(attrs={'placeholder': 'https://example.com/image.jpg'}),
+        }
+        labels = {
+            'image_url': 'Image URL (optional)',
         }
 
 
@@ -147,20 +172,43 @@ class RecallNoticeForm(forms.ModelForm):
 
 # Form for producers to create or edit a product listing
 class ProductForm(forms.ModelForm):
+    allergen_choices = forms.MultipleChoiceField(
+        choices=UK_ALLERGENS,
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label='Allergens (select all that apply)',
+        help_text='All 14 major allergens recognised by UK law',
+    )
+
     class Meta:
         model = Product
         fields = [
             'name', 'category', 'description', 'price', 'stock',
-            'allergens', 'is_organic', 'harvest_date', 'best_before',
+            'is_organic', 'harvest_date', 'best_before',
             'farm_origin', 'is_seasonal', 'seasonal_months',
+            'season_start_month', 'season_end_month',
             'lead_time_hours', 'low_stock_threshold', 'is_active',
         ]
         widgets = {
             'harvest_date': forms.DateInput(attrs={'type': 'date'}),
             'best_before': forms.DateInput(attrs={'type': 'date'}),
             'description': forms.Textarea(attrs={'rows': 4}),
-            'allergens': forms.Textarea(attrs={'rows': 2}),
+            'seasonal_months': forms.TextInput(attrs={'placeholder': 'e.g. June – August (display label only)'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk and self.instance.allergens:
+            known_values = {v for v, _ in UK_ALLERGENS}
+            existing = [a.strip() for a in self.instance.allergens.split(',') if a.strip()]
+            self.initial['allergen_choices'] = [v for v in existing if v in known_values]
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        instance.allergens = ', '.join(self.cleaned_data.get('allergen_choices', []))
+        if commit:
+            instance.save()
+        return instance
 
 
 # Form for customers to leave a verified review on a product they have received
