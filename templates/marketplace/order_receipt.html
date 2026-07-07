@@ -19,7 +19,14 @@
     <hr style="border:none; border-top:1px solid #eee; margin:1rem 0;">
 
     <p style="margin:0.3rem 0;"><strong>Delivery address:</strong> {{ order.delivery_address }}</p>
+    {% if order.producer_delivery_dates.count > 1 %}
+    <p style="margin:0.3rem 0;"><strong>Delivery dates:</strong></p>
+    {% for pd in order.producer_delivery_dates.all %}
+    <p style="margin:0.2rem 0 0.2rem 1rem;">{{ pd.producer.business_name }} &mdash; {{ pd.delivery_date|date:"d M Y" }}</p>
+    {% endfor %}
+    {% else %}
     <p style="margin:0.3rem 0;"><strong>Delivery date:</strong> {{ order.delivery_date|date:"d M Y" }}</p>
+    {% endif %}
     {% if order.special_instructions %}
     <p style="margin:0.3rem 0;"><strong>Instructions:</strong> {{ order.special_instructions }}</p>
     {% endif %}

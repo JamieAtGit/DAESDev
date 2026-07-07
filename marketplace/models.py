@@ -255,12 +255,24 @@ class Order(models.Model):
     total_price = models.DecimalField(max_digits=10, decimal_places=2)  # includes commission
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     delivery_address = models.TextField()
-    delivery_date = models.DateField()
+    delivery_date = models.DateField()  # earliest date if producers deliver on different days
     special_instructions = models.TextField(blank=True)
     commission_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
     def __str__(self):
         return f"Order #{self.id} by {self.customer.username}"
+
+
+# The delivery date agreed with each producer in an order. In a multi-vendor
+# order each producer can deliver on a different day (TC-008);
+# Order.delivery_date holds the earliest of these for sorting and display.
+class ProducerDeliveryDate(models.Model):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='producer_delivery_dates')
+    producer = models.ForeignKey(ProducerProfile, on_delete=models.CASCADE)
+    delivery_date = models.DateField()
+
+    def __str__(self):
+        return f"Order #{self.order.id} — {self.producer.business_name} on {self.delivery_date}"
 
 
 # A single product line within an order, with the quantity and price at time of purchase

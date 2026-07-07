@@ -104,7 +104,6 @@ class CheckoutForm(forms.Form):
     email = forms.EmailField()
     postcode = forms.CharField(max_length=10)
     delivery_address = forms.CharField(widget=forms.Textarea(attrs={'rows': 3}))
-    delivery_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
     special_instructions = forms.CharField(
         widget=forms.Textarea(attrs={'rows': 2}),
         required=False,
@@ -137,6 +136,17 @@ class CheckoutForm(forms.Form):
         required=False, label='Delivered every',
     )
 
+    def __init__(self, *args, producers=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        # One delivery date field per producer in the cart — each producer
+        # prepares and delivers separately, so their dates can differ (TC-008)
+        self.producers = producers or []
+        for i, name in enumerate(self.producers):
+            self.fields[f'delivery_date_{i}'] = forms.DateField(
+                label=f'Delivery date — {name}',
+                widget=forms.DateInput(attrs={'type': 'date'}),
+            )
+
     def clean(self):
         # If recurring is ticked, both day fields must also be filled in
         cleaned_data = super().clean()
@@ -145,7 +155,18 @@ class CheckoutForm(forms.Form):
                 raise forms.ValidationError('Please select the day your recurring order should be placed.')
             if not cleaned_data.get('delivery_day'):
                 raise forms.ValidationError('Please select your preferred delivery day.')
+        # Every delivery date must respect the minimum 48-hour lead time
+        from datetime import date, timedelta
+        min_date = date.today() + timedelta(hours=48)
+        for i in range(len(self.producers)):
+            delivery_date = cleaned_data.get(f'delivery_date_{i}')
+            if delivery_date and delivery_date < min_date:
+                self.add_error(f'delivery_date_{i}', 'Delivery must be at least 48 hours from now.')
         return cleaned_data
+
+    def delivery_dates(self):
+        # Returns {producer name: chosen date} — only call after is_valid()
+        return {name: self.cleaned_data[f'delivery_date_{i}'] for i, name in enumerate(self.producers)}
 
     def clean_card_number(self):
         number = self.cleaned_data.get('card_number', '').replace(' ', '')
@@ -173,16 +194,6 @@ class CheckoutForm(forms.Form):
         if (year, month) < (date.today().year, date.today().month):
             raise forms.ValidationError('This card has expired.')
         return expiry
-
-    def clean_delivery_date(self):
-        # Enforce the minimum 48-hour lead time required by producers
-        from datetime import date, timedelta
-        delivery_date = self.cleaned_data.get('delivery_date')
-        min_date = date.today() + timedelta(hours=48)
-        if delivery_date < min_date:
-            raise forms.ValidationError('Delivery must be at least 48 hours from now.')
-        return delivery_date
-
 
 # Form for producers to write and share a community post (story, recipe, or storage tip)
 class CommunityPostForm(forms.ModelForm):

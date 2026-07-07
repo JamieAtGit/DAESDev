@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import CustomUser, ProducerProfile, Category, Product, Order, OrderItem, SurplusProduce, CommunityPost, PaymentSettlement, PaymentTransaction, AuditLog, RecallNotice, Review
+from .models import CustomUser, ProducerProfile, Category, Product, Order, OrderItem, SurplusProduce, CommunityPost, PaymentSettlement, PaymentTransaction, ProducerDeliveryDate, AuditLog, RecallNotice, Review
 
 
 @admin.register(CustomUser)
@@ -80,8 +80,13 @@ class OrderItemInline(admin.TabularInline):
     extra = 0
 
 
+class ProducerDeliveryDateInline(admin.TabularInline):
+    model = ProducerDeliveryDate
+    extra = 0
+
+
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
     list_display = ['id', 'customer', 'status', 'total_price', 'commission_amount', 'delivery_date']
     list_filter = ['status']
-    inlines = [OrderItemInline]
+    inlines = [OrderItemInline, ProducerDeliveryDateInline]

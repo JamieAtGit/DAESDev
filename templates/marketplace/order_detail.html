@@ -8,7 +8,9 @@
         <h3>Customer Details</h3>
         <p><strong>Name:</strong> {{ order.customer.username }}</p>
         <p style="margin-top:0.4rem;"><strong>Delivery Address:</strong><br>{{ order.delivery_address }}</p>
-        <p style="margin-top:0.4rem;"><strong>Delivery Date:</strong> {{ order.delivery_date|date:"d M Y" }}</p>
+        <p style="margin-top:0.4rem;"><strong>Delivery Date:</strong>
+            {% if producer_delivery %}{{ producer_delivery.delivery_date|date:"d M Y" }}{% else %}{{ order.delivery_date|date:"d M Y" }}{% endif %}
+        </p>
         <p style="margin-top:0.4rem;"><strong>Order Placed:</strong> {{ order.created_at|date:"d M Y H:i" }}</p>
         {% if order.special_instructions %}
         <p style="margin-top:0.4rem;"><strong>Special Instructions:</strong><br>

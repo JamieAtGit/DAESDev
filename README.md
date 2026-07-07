@@ -69,7 +69,7 @@ Admin panel: [http://localhost:8000/admin/](http://localhost:8000/admin/)
 
 - **Product marketplace** — browse, search, and filter by category, organic certification, and allergens
 - **Food miles** — straight-line distance calculated per product using producer postcode, displayed on product pages and in cart
-- **Cart and checkout** — session-based multi-vendor cart with 5% network commission applied at checkout
+- **Cart and checkout** — session-based multi-vendor cart with 5% network commission applied at checkout; each producer in the order gets their own delivery date (minimum 48-hour lead time)
 - **Test-mode card payments** — checkout takes a simulated card payment before the order is created, and each payment is stored with a transaction reference. Card `4242 4242 4242 4242` (any future expiry/CVV) succeeds; `4000 0000 0000 0002` is always declined. No real payment system is used. Tests: `python manage.py test marketplace`
 - **Recurring orders** — customers can opt in to weekly repeat orders at checkout; manage via `/recurring-orders/`
 - **Producer dashboard** — add, edit, and delete products with stock, seasonal availability, and low stock threshold management

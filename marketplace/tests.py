@@ -7,7 +7,7 @@ from django.test import TestCase
 
 from .models import (
     Category, CustomUser, Order, PaymentSettlement, PaymentTransaction,
-    ProducerProfile, Product,
+    ProducerDeliveryDate, ProducerProfile, Product,
 )
 
 
@@ -45,7 +45,7 @@ class CheckoutPaymentTests(TestCase):
             'email': 'cust@test.com',
             'postcode': 'BS1 1AA',
             'delivery_address': '2 Road',
-            'delivery_date': (date.today() + timedelta(days=3)).isoformat(),
+            'delivery_date_0': (date.today() + timedelta(days=3)).isoformat(),
             'card_number': '4242 4242 4242 4242',
             'card_expiry': '08/28',
             'card_cvv': '123',
@@ -72,7 +72,7 @@ class CheckoutPaymentTests(TestCase):
             'email': 'cust@test.com',
             'postcode': 'BS1 1AA',
             'delivery_address': '2 Road',
-            'delivery_date': (date.today() + timedelta(days=3)).isoformat(),
+            'delivery_date_0': (date.today() + timedelta(days=3)).isoformat(),
             'card_number': '4000 0000 0000 0002',
             'card_expiry': '08/28',
             'card_cvv': '123',
@@ -85,3 +85,47 @@ class CheckoutPaymentTests(TestCase):
         self.assertIn('cart', self.client.session)
         self.product.refresh_from_db()
         self.assertEqual(self.product.stock, 20)
+
+    def test_multi_vendor_order_can_have_different_delivery_dates(self):
+        # Add a second producer's product to the cart
+        dairy_user = CustomUser.objects.create_user(
+            username='dairy', password='pass1234', role='producer'
+        )
+        dairy = ProducerProfile.objects.create(
+            user=dairy_user, business_name='Hill Dairy', address='3 Hill', postcode='BS40 5AA'
+        )
+        milk = Product.objects.create(
+            producer=dairy, name='Milk', description='Fresh', price='1.50', stock=10,
+        )
+        session = self.client.session
+        session['cart'][str(milk.id)] = {
+            'name': 'Milk', 'price': '1.50', 'quantity': 2,
+            'producer': 'Hill Dairy', 'producer_postcode': 'BS40 5AA',
+        }
+        session.save()
+
+        # Producers are sorted by name on the form: Hill Dairy first, Test Farm second
+        earlier = date.today() + timedelta(days=3)
+        later = date.today() + timedelta(days=5)
+        response = self.client.post('/checkout/', {
+            'full_name': 'Test Customer',
+            'email': 'cust@test.com',
+            'postcode': 'BS1 1AA',
+            'delivery_address': '2 Road',
+            'delivery_date_0': earlier.isoformat(),
+            'delivery_date_1': later.isoformat(),
+            'card_number': '4242 4242 4242 4242',
+            'card_expiry': '08/28',
+            'card_cvv': '123',
+        })
+        self.assertRedirects(response, '/')
+        order = Order.objects.get()
+        # The order header keeps the earliest date
+        self.assertEqual(order.delivery_date, earlier)
+        # Each producer has their own agreed delivery date
+        self.assertEqual(
+            ProducerDeliveryDate.objects.get(order=order, producer=dairy).delivery_date, earlier
+        )
+        self.assertEqual(
+            ProducerDeliveryDate.objects.get(order=order, producer=self.producer).delivery_date, later
+        )

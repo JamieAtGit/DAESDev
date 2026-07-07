@@ -12,7 +12,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.db.models import Avg, F
 from .forms import RegisterForm, ProducerRegistrationForm, CommunityGroupRegistrationForm, ProductForm, CheckoutForm, CommunityPostForm, RecallNoticeForm, ReviewForm
-from .models import ProducerProfile, Product, Category, Order, OrderItem, SurplusProduce, CommunityPost, PaymentSettlement, PaymentTransaction, AuditLog, RecallNotice, RecurringOrder, RecurringOrderItem, Review
+from .models import ProducerProfile, Product, Category, Order, OrderItem, SurplusProduce, CommunityPost, PaymentSettlement, PaymentTransaction, ProducerDeliveryDate, AuditLog, RecallNotice, RecurringOrder, RecurringOrderItem, Review
 from .surplus_forms import SurplusProduceForm
 from .food_miles import calculate_food_miles
 from .payments import process_card_payment
@@ -367,8 +367,11 @@ def checkout(request):  # TC-007: single producer order; TC-008: multi-vendor; T
     commission = round(total * 0.05, 2)   # platform takes 5% of every order
     grand_total = round(total + commission, 2)
 
+    # Each producer in the cart gets their own delivery date field on the form
+    producer_names = sorted({item['producer'] for item in cart.values()})
+
     if request.method == 'POST':
-        form = CheckoutForm(request.POST)
+        form = CheckoutForm(request.POST, producers=producer_names)
         if form.is_valid():
             # "Charge" the card first — no order is created if the payment fails
             payment_ok, payment_ref = process_card_payment(
@@ -391,11 +394,13 @@ def checkout(request):  # TC-007: single producer order; TC-008: multi-vendor; T
                     'commission': commission,
                     'grand_total': grand_total,
                 })
-            # Save the order record
+            # Save the order record — its delivery_date is the earliest of the
+            # per-producer dates chosen on the form
+            delivery_dates = form.delivery_dates()
             order = Order.objects.create(
                 customer=request.user,
                 delivery_address=form.cleaned_data['delivery_address'],
-                delivery_date=form.cleaned_data['delivery_date'],
+                delivery_date=min(delivery_dates.values()),
                 special_instructions=form.cleaned_data.get('special_instructions', ''),
                 total_price=grand_total,
                 commission_amount=commission,
@@ -431,6 +436,12 @@ def checkout(request):  # TC-007: single producer order; TC-008: multi-vendor; T
                 if item.product:
                     producers_in_order.add(item.product.producer)
             for producer in producers_in_order:
+                # Record the delivery date agreed with this producer
+                ProducerDeliveryDate.objects.create(
+                    order=order,
+                    producer=producer,
+                    delivery_date=delivery_dates[producer.business_name],
+                )
                 # Filter to only this producer's items so the commission split is per-supplier
                 producer_items = order.items.filter(product__producer=producer)
                 gross = sum(float(i.unit_price) * i.quantity for i in producer_items)
@@ -488,7 +499,7 @@ def checkout(request):  # TC-007: single producer order; TC-008: multi-vendor; T
         initial = {}
         if request.user.delivery_address:
             initial['delivery_address'] = request.user.delivery_address
-        form = CheckoutForm(initial=initial)
+        form = CheckoutForm(initial=initial, producers=producer_names)
 
     return render(request, 'marketplace/checkout.html', {
         'form': form,
@@ -786,6 +797,8 @@ def order_detail(request, pk):  # TC-009: full order detail; TC-010: status upda
     items = order.items.filter(product__producer=producer).select_related('product')
     for item in items:
         item.subtotal = round(float(item.unit_price) * item.quantity, 2)
+    # In a multi-vendor order this producer may have their own delivery date
+    producer_delivery = order.producer_delivery_dates.filter(producer=producer).first()
     next_status = {
         'pending': 'confirmed',
         'confirmed': 'ready',
@@ -797,6 +810,7 @@ def order_detail(request, pk):  # TC-009: full order detail; TC-010: status upda
     return render(request, 'marketplace/order_detail.html', {
         'order': order,
         'items': items,
+        'producer_delivery': producer_delivery,
         'next_status': next_status,
         'history': history,
     })
