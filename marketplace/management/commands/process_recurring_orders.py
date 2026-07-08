@@ -4,7 +4,7 @@ from datetime import date, timedelta
 from django.core.management.base import BaseCommand
 
 from marketplace.models import (
-    AuditLog, Order, OrderItem, PaymentSettlement,
+    AuditLog, Order, OrderItem,
     PaymentTransaction, RecurringOrder, RecurringOrderItem,
 )
 
@@ -55,7 +55,6 @@ class Command(BaseCommand):
                 commission_amount=commission,
             )
 
-            producers_in_order = set()
             for item in items:
                 OrderItem.objects.create(
                     order=order,
@@ -65,23 +64,9 @@ class Command(BaseCommand):
                 )
                 item.product.stock = max(0, item.product.stock - item.quantity)
                 item.product.save(update_fields=['stock'])
-                producers_in_order.add(item.product.producer)
 
-            # Per-producer settlement (same logic as checkout view)
-            week_ending = today + timedelta(days=(6 - today.weekday()))
-            for producer in producers_in_order:
-                producer_items = order.items.filter(product__producer=producer)
-                gross = sum(float(i.unit_price) * i.quantity for i in producer_items)
-                producer_commission = round(gross * 0.05, 2)
-                net = round(gross - producer_commission, 2)
-                PaymentSettlement.objects.create(
-                    producer=producer,
-                    order=order,
-                    gross_amount=gross,
-                    commission_deducted=producer_commission,
-                    net_amount=net,
-                    week_ending=week_ending,
-                )
+            # Settlements are created when the order is marked delivered,
+            # not here — producers are only paid for completed orders
 
             # No card is stored on file, so auto-generated orders get a
             # recurring payment reference instead of a card charge

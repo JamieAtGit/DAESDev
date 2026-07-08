@@ -61,12 +61,37 @@ class CheckoutPaymentTests(TestCase):
         payment = PaymentTransaction.objects.get(order=order)
         self.assertEqual(payment.card_last4, '4242')
         self.assertTrue(payment.transaction_ref.startswith('PAY-'))
-        # The producer's settlement keeps 95% of their £10.00 gross
-        settlement = PaymentSettlement.objects.get(order=order)
-        self.assertEqual(str(settlement.net_amount), '9.50')
+        # No settlement yet — producers are only paid once the order is delivered
+        self.assertEqual(PaymentSettlement.objects.count(), 0)
         # Stock reduced from 20 to 16
         self.product.refresh_from_db()
         self.assertEqual(self.product.stock, 16)
+
+    def test_settlement_created_when_order_is_delivered(self):
+        self.client.post('/checkout/', {
+            'full_name': 'Test Customer',
+            'email': 'cust@test.com',
+            'postcode': 'BS1 1AA',
+            'delivery_address': '2 Road',
+            'delivery_date_0': (date.today() + timedelta(days=3)).isoformat(),
+            'card_number': '4242 4242 4242 4242',
+            'card_expiry': '08/28',
+            'card_cvv': '123',
+        })
+        order = Order.objects.get()
+        # The producer advances the order: pending → confirmed → ready → delivered
+        self.client.login(username='farmer', password='pass1234')
+        for expected in ['confirmed', 'ready', 'delivered']:
+            self.client.post(f'/orders/{order.id}/status/')
+            order.refresh_from_db()
+            self.assertEqual(order.status, expected)
+            if expected == 'delivered':
+                # Settlement appears only at this point, with 95% of the £10.00 gross
+                settlement = PaymentSettlement.objects.get(order=order)
+                self.assertEqual(str(settlement.net_amount), '9.50')
+                self.assertEqual(str(settlement.commission_deducted), '0.50')
+            else:
+                self.assertEqual(PaymentSettlement.objects.count(), 0)
 
     def test_declined_card_does_not_place_order(self):
         response = self.client.post('/checkout/', {

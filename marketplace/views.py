@@ -427,33 +427,19 @@ def checkout(request):  # TC-007: single producer order; TC-008: multi-vendor; T
                 card_last4=form.cleaned_data['card_number'][-4:],
             )
 
-            # Create a PaymentSettlement for each producer involved in this order
+            # Record the delivery date agreed with each producer in the order.
+            # Settlements are NOT created here — producers are only paid for
+            # completed orders, so they are created when the order is delivered.
             from datetime import date, timedelta
-            week_ending = date.today() + timedelta(days=(6 - date.today().weekday()))
-            # Build a set of unique producers so multi-vendor orders produce one settlement each
             producers_in_order = set()
             for item in order.items.all():
                 if item.product:
                     producers_in_order.add(item.product.producer)
             for producer in producers_in_order:
-                # Record the delivery date agreed with this producer
                 ProducerDeliveryDate.objects.create(
                     order=order,
                     producer=producer,
                     delivery_date=delivery_dates[producer.business_name],
-                )
-                # Filter to only this producer's items so the commission split is per-supplier
-                producer_items = order.items.filter(product__producer=producer)
-                gross = sum(float(i.unit_price) * i.quantity for i in producer_items)
-                producer_commission = round(gross * 0.05, 2)  # platform retains 5%
-                net = round(gross - producer_commission, 2)   # producer receives the remaining 95%
-                PaymentSettlement.objects.create(
-                    producer=producer,
-                    order=order,
-                    gross_amount=gross,
-                    commission_deducted=producer_commission,
-                    net_amount=net,
-                    week_ending=week_ending,
                 )
 
             # Write an audit log entry so admins can trace when this order was placed
@@ -828,6 +814,9 @@ def order_status_update(request, pk):  # TC-010: advances order through Pending 
     if new_status:
         order.status = new_status
         order.save()
+        # The order is now complete, so the producers' settlements can be created
+        if new_status == 'delivered':
+            order.create_settlements()
         note = request.POST.get('note', '').strip()
         AuditLog.objects.create(
             user=request.user,

@@ -95,23 +95,25 @@ def make_order(customer, items, status, days_ago, delivery_offset=2, instruction
             quantity=qty, unit_price=product.price
         )
 
-    # settlements grouped by producer
-    producer_totals = {}
-    for product, qty in items:
-        prod = product.producer
-        producer_totals[prod] = producer_totals.get(prod, Decimal('0')) + product.price * qty
+    # settlements grouped by producer — only delivered orders have settlements,
+    # matching the app (they are created when an order is marked delivered)
+    if status == 'delivered':
+        producer_totals = {}
+        for product, qty in items:
+            prod = product.producer
+            producer_totals[prod] = producer_totals.get(prod, Decimal('0')) + product.price * qty
 
-    for producer, gross_amt in producer_totals.items():
-        comm = (gross_amt * Decimal('0.05')).quantize(Decimal('0.01'))
-        PaymentSettlement.objects.create(
-            producer=producer,
-            order=order,
-            gross_amount=gross_amt,
-            commission_deducted=comm,
-            net_amount=gross_amt - comm,
-            status='paid' if status == 'delivered' else 'pending',
-            week_ending=week_ending(order.created_at.date()),
-        )
+        for producer, gross_amt in producer_totals.items():
+            comm = (gross_amt * Decimal('0.05')).quantize(Decimal('0.01'))
+            PaymentSettlement.objects.create(
+                producer=producer,
+                order=order,
+                gross_amount=gross_amt,
+                commission_deducted=comm,
+                net_amount=gross_amt - comm,
+                status='paid' if days_ago >= 7 else 'pending',
+                week_ending=week_ending(order.created_at.date()),
+            )
 
     AuditLog.objects.create(
         user=customer,

@@ -75,7 +75,7 @@ Admin panel: [http://localhost:8000/admin/](http://localhost:8000/admin/)
 - **Producer dashboard** — add, edit, and delete products with stock, seasonal availability, and low stock threshold management
 - **Low stock alerts** — amber dashboard banner warns producers when a product's stock falls to or below their set threshold
 - **Order management** — producers view incoming orders and advance status (Pending → Confirmed → Ready → Delivered)
-- **Payment settlements** — auto-generated per producer on each order; CSV export at `/settlements/export/`
+- **Payment settlements** — generated per producer when an order is marked delivered (producers are only paid for completed orders); CSV export at `/settlements/export/`
 - **Admin commission report** — staff-only view at `/admin/report/` with date range filtering, period totals, year-to-date commission, and CSV export
 - **Surplus produce** — producers list short-dated or excess stock at a discount (10–50% off) via `/surplus/`
 - **Community board** — producers share farm stories, recipes, and storage tips linked to their products

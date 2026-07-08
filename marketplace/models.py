@@ -262,6 +262,25 @@ class Order(models.Model):
     def __str__(self):
         return f"Order #{self.id} by {self.customer.username}"
 
+    def create_settlements(self):
+        # Called when the order is marked delivered — producers are only owed
+        # money for completed orders, so no settlement exists before then
+        from datetime import date, timedelta
+        week_ending = date.today() + timedelta(days=(6 - date.today().weekday()))
+        producers = {item.product.producer for item in self.items.all() if item.product}
+        for producer in producers:
+            producer_items = self.items.filter(product__producer=producer)
+            gross = sum(float(i.unit_price) * i.quantity for i in producer_items)
+            commission = round(gross * 0.05, 2)  # platform retains 5%
+            PaymentSettlement.objects.create(
+                producer=producer,
+                order=self,
+                gross_amount=gross,
+                commission_deducted=commission,
+                net_amount=round(gross - commission, 2),
+                week_ending=week_ending,
+            )
+
 
 # The delivery date agreed with each producer in an order. In a multi-vendor
 # order each producer can deliver on a different day (TC-008);
