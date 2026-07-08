@@ -223,12 +223,14 @@ class RecallNoticeForm(forms.ModelForm):
 
 # Form for producers to create or edit a product listing
 class ProductForm(forms.ModelForm):
+    # Food safety rule: allergen information cannot be omitted, so producers
+    # must either tick the allergens present or explicitly declare none
     allergen_choices = forms.MultipleChoiceField(
-        choices=UK_ALLERGENS,
+        choices=[('none', 'No common allergens')] + UK_ALLERGENS,
         widget=forms.CheckboxSelectMultiple,
-        required=False,
         label='Allergens (select all that apply)',
-        help_text='All 14 major allergens recognised by UK law',
+        help_text="All 14 major allergens recognised by UK law — select 'No common allergens' if none apply",
+        error_messages={'required': "Please declare the allergens, or select 'No common allergens'."},
     )
 
     class Meta:
@@ -249,14 +251,26 @@ class ProductForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if self.instance and self.instance.pk and self.instance.allergens:
-            known_values = {v for v, _ in UK_ALLERGENS}
-            existing = [a.strip() for a in self.instance.allergens.split(',') if a.strip()]
-            self.initial['allergen_choices'] = [v for v in existing if v in known_values]
+        if self.instance and self.instance.pk:
+            if self.instance.allergens:
+                known_values = {v for v, _ in UK_ALLERGENS}
+                existing = [a.strip() for a in self.instance.allergens.split(',') if a.strip()]
+                self.initial['allergen_choices'] = [v for v in existing if v in known_values]
+            else:
+                # A saved product with no allergens was declared allergen-free
+                self.initial['allergen_choices'] = ['none']
+
+    def clean_allergen_choices(self):
+        choices = self.cleaned_data.get('allergen_choices', [])
+        if 'none' in choices and len(choices) > 1:
+            raise forms.ValidationError("'No common allergens' cannot be combined with other allergens.")
+        return choices
 
     def save(self, commit=True):
         instance = super().save(commit=False)
-        instance.allergens = ', '.join(self.cleaned_data.get('allergen_choices', []))
+        choices = self.cleaned_data.get('allergen_choices', [])
+        # 'none' is stored as an empty string — the templates read that as allergen-free
+        instance.allergens = '' if choices == ['none'] else ', '.join(choices)
         if commit:
             instance.save()
         return instance

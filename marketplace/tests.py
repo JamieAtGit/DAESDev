@@ -1,10 +1,12 @@
-# tests.py — checks the simulated card payment at checkout.
+# tests.py — checks the simulated card payment at checkout and the
+# allergen declaration rule on the product form.
 # Run with: python manage.py test marketplace
 
 from datetime import date, timedelta
 
 from django.test import TestCase
 
+from .forms import ProductForm
 from .models import (
     Category, CustomUser, Order, PaymentSettlement, PaymentTransaction,
     ProducerDeliveryDate, ProducerProfile, Product,
@@ -129,3 +131,44 @@ class CheckoutPaymentTests(TestCase):
         self.assertEqual(
             ProducerDeliveryDate.objects.get(order=order, producer=self.producer).delivery_date, later
         )
+
+
+class ProductAllergenTests(TestCase):
+    def product_data(self):
+        return {
+            'name': 'Walnut Bread',
+            'description': 'Freshly baked',
+            'price': '3.20',
+            'stock': 10,
+            'lead_time_hours': 48,
+            'low_stock_threshold': 5,
+        }
+
+    def test_allergens_cannot_be_omitted(self):
+        data = self.product_data()  # no allergen_choices at all
+        form = ProductForm(data)
+        self.assertFalse(form.is_valid())
+        self.assertIn('allergen_choices', form.errors)
+
+    def test_declaring_no_allergens_saves_blank(self):
+        data = self.product_data()
+        data['allergen_choices'] = ['none']
+        form = ProductForm(data)
+        self.assertTrue(form.is_valid(), form.errors)
+        product = form.save(commit=False)
+        self.assertEqual(product.allergens, '')
+
+    def test_none_cannot_be_combined_with_allergens(self):
+        data = self.product_data()
+        data['allergen_choices'] = ['none', 'Tree nuts']
+        form = ProductForm(data)
+        self.assertFalse(form.is_valid())
+        self.assertIn('allergen_choices', form.errors)
+
+    def test_selected_allergens_are_saved(self):
+        data = self.product_data()
+        data['allergen_choices'] = ['Cereals containing gluten', 'Tree nuts']
+        form = ProductForm(data)
+        self.assertTrue(form.is_valid(), form.errors)
+        product = form.save(commit=False)
+        self.assertEqual(product.allergens, 'Cereals containing gluten, Tree nuts')
