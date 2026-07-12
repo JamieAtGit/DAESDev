@@ -32,7 +32,8 @@ class Command(BaseCommand):
                 )
                 continue
 
-            subtotal = sum(float(i.unit_price) * i.quantity for i in items)
+            # A one-off next_quantity override takes priority over the template quantity
+            subtotal = sum(float(i.unit_price) * (i.next_quantity or i.quantity) for i in items)
             commission = round(subtotal * 0.05, 2)
             grand_total = round(subtotal + commission, 2)
 
@@ -56,14 +57,20 @@ class Command(BaseCommand):
             )
 
             for item in items:
+                qty = item.next_quantity or item.quantity
                 OrderItem.objects.create(
                     order=order,
                     product=item.product,
-                    quantity=item.quantity,
+                    quantity=qty,
                     unit_price=item.unit_price,
                 )
-                item.product.stock = max(0, item.product.stock - item.quantity)
+                item.product.stock = max(0, item.product.stock - qty)
                 item.product.save(update_fields=['stock'])
+                # The override only applies to this one order — clear it so the
+                # following week goes back to the template quantity
+                if item.next_quantity:
+                    item.next_quantity = None
+                    item.save(update_fields=['next_quantity'])
 
             # Settlements are created when the order is marked delivered,
             # not here — producers are only paid for completed orders

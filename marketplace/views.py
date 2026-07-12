@@ -700,16 +700,18 @@ def recurring_order_cancel(request, pk):
 
 
 @login_required
-def recurring_order_edit(request, pk):
+def recurring_order_edit(request, pk):  # TC-018: adjust the next order without changing the template
     order = get_object_or_404(RecurringOrder, pk=pk, customer=request.user, is_active=True)
     items = order.items.select_related('product').all()
     if request.method == 'POST':
         for item in items:
             new_qty = request.POST.get(f'qty_{item.id}')
             if new_qty and int(new_qty) > 0:
-                item.quantity = int(new_qty)
-                item.save(update_fields=['quantity'])
-        messages.success(request, 'Next order quantities updated.')
+                # Store as a one-off override — the template quantity is not
+                # changed, so the week after reverts to the usual amount
+                item.next_quantity = int(new_qty) if int(new_qty) != item.quantity else None
+                item.save(update_fields=['next_quantity'])
+        messages.success(request, 'Next order updated — your weekly template is unchanged.')
         return redirect('recurring_orders')
     return render(request, 'marketplace/recurring_order_edit.html', {'order': order, 'items': items})
 

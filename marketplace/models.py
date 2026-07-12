@@ -236,6 +236,9 @@ class RecurringOrderItem(models.Model):
     product = models.ForeignKey('Product', on_delete=models.SET_NULL, null=True)
     quantity = models.PositiveIntegerField()
     unit_price = models.DecimalField(max_digits=8, decimal_places=2)  # price locked at time of setup
+    # One-off quantity for the next generated order only — the template's
+    # quantity above is untouched, and this is cleared once that order is placed
+    next_quantity = models.PositiveIntegerField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.quantity} x {self.product.name}"

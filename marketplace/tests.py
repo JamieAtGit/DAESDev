@@ -4,12 +4,14 @@
 
 from datetime import date, timedelta
 
+from django.core.management import call_command
 from django.test import TestCase
 
 from .forms import ProductForm
 from .models import (
     Category, CustomUser, Order, PaymentSettlement, PaymentTransaction,
     ProducerDeliveryDate, ProducerProfile, Product,
+    RecurringOrder, RecurringOrderItem,
 )
 
 
@@ -197,3 +199,57 @@ class ProductAllergenTests(TestCase):
         self.assertTrue(form.is_valid(), form.errors)
         product = form.save(commit=False)
         self.assertEqual(product.allergens, 'Cereals containing gluten, Tree nuts')
+
+
+class RecurringOrderTests(TestCase):
+    def setUp(self):
+        producer_user = CustomUser.objects.create_user(
+            username='farmer', password='pass1234', role='producer'
+        )
+        producer = ProducerProfile.objects.create(
+            user=producer_user, business_name='Test Farm', address='1 Lane', postcode='BS10 5AA'
+        )
+        self.product = Product.objects.create(
+            producer=producer, name='Eggs', description='Fresh', price='3.50', stock=50,
+        )
+        self.customer = CustomUser.objects.create_user(
+            username='cust', password='pass1234', role='restaurant',
+            delivery_address='2 Road', delivery_postcode='BS1 1AA',
+        )
+        self.rec = RecurringOrder.objects.create(
+            customer=self.customer,
+            delivery_address='2 Road',
+            recurrence_day='monday',
+            delivery_day='wednesday',
+            next_order_date=date.today(),
+        )
+        self.item = RecurringOrderItem.objects.create(
+            recurring_order=self.rec, product=self.product, quantity=2, unit_price='3.50',
+        )
+
+    def test_editing_next_order_leaves_template_unchanged(self):
+        self.client.login(username='cust', password='pass1234')
+        response = self.client.post(f'/recurring-orders/{self.rec.id}/edit/', {
+            f'qty_{self.item.id}': 5,
+        })
+        self.assertRedirects(response, '/recurring-orders/')
+        self.item.refresh_from_db()
+        # The template still says 2 every week; only the next order is 5
+        self.assertEqual(self.item.quantity, 2)
+        self.assertEqual(self.item.next_quantity, 5)
+
+    def test_generated_order_uses_override_then_reverts_to_template(self):
+        self.item.next_quantity = 5
+        self.item.save()
+        call_command('process_recurring_orders')
+        # The generated order used the one-off quantity of 5 (5 x £3.50 + 5% = £18.38)
+        order = Order.objects.get()
+        self.assertEqual(order.items.get().quantity, 5)
+        self.assertEqual(str(order.total_price), '18.38')
+        # The override is cleared, so the following week reverts to 2
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.quantity, 2)
+        self.assertIsNone(self.item.next_quantity)
+        # The template has moved on a week
+        self.rec.refresh_from_db()
+        self.assertEqual(self.rec.next_order_date, date.today() + timedelta(weeks=1))

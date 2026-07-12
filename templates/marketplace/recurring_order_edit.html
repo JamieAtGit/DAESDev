@@ -13,7 +13,8 @@
             <tr>
                 <th>Product</th>
                 <th>Producer</th>
-                <th>Quantity</th>
+                <th>Every Week</th>
+                <th>Next Order</th>
             </tr>
         </thead>
         <tbody>
@@ -21,8 +22,10 @@
             <tr>
                 <td>{{ item.product.name }}</td>
                 <td>{{ item.product.producer.business_name }}</td>
+                <td style="color:#888;">{{ item.quantity }}</td>
                 <td>
-                    <input type="number" name="qty_{{ item.id }}" value="{{ item.quantity }}" min="1"
+                    <input type="number" name="qty_{{ item.id }}"
+                        value="{% if item.next_quantity %}{{ item.next_quantity }}{% else %}{{ item.quantity }}{% endif %}" min="1"
                         style="width:65px; padding:0.3rem; border:1px solid #ccc; border-radius:4px;">
                 </td>
             </tr>

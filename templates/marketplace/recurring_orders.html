@@ -35,7 +35,12 @@
                 <tr>
                     <td>{{ item.product.name }}</td>
                     <td>{{ item.product.producer.business_name }}</td>
-                    <td>{{ item.quantity }}</td>
+                    <td>
+                        {{ item.quantity }}
+                        {% if item.next_quantity %}
+                        <span style="color:#856404; font-size:0.82rem;">(next order: {{ item.next_quantity }})</span>
+                        {% endif %}
+                    </td>
                     <td>£{{ item.unit_price }}</td>
                 </tr>
                 {% endfor %}
